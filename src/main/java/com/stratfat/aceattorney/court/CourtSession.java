@@ -11,7 +11,7 @@ public class CourtSession {
 	public record Statement(String speaker, String text) {
 	}
 
-	private final UUID judge;
+	private UUID judge;
 	private final Map<UUID, CourtRole> roles = new LinkedHashMap<>();
 	private final List<Evidence> evidence = new ArrayList<>();
 	private final List<Statement> testimony = new ArrayList<>();
@@ -25,6 +25,15 @@ public class CourtSession {
 
 	public UUID judge() {
 		return judge;
+	}
+
+	public void setJudge(UUID judge) {
+		this.judge = judge;
+	}
+
+	/** True while someone actually holds the judge role (the starter may have switched seats by accident). */
+	public boolean hasJudge() {
+		return roles.containsValue(CourtRole.JUDGE);
 	}
 
 	public Map<UUID, CourtRole> roles() {

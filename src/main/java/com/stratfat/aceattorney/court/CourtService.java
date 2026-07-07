@@ -115,13 +115,16 @@ public final class CourtService {
 			fail(player, "court.aceattorney.no_session_hint_block");
 			return false;
 		}
-		if (role == CourtRole.JUDGE && !session.isJudge(player.getUUID())) {
-			ServerPlayer judge = player.level().getServer().getPlayerList().getPlayer(session.judge());
-			fail(player, "court.aceattorney.judge_taken");
-			if (judge != null) {
-				player.sendSystemMessage(Component.literal("  → " + judge.getGameProfile().name()).withStyle(ChatFormatting.GRAY));
+		if (role == CourtRole.JUDGE) {
+			if (session.hasJudge() && !session.isJudge(player.getUUID())) {
+				ServerPlayer judge = player.level().getServer().getPlayerList().getPlayer(session.judge());
+				fail(player, "court.aceattorney.judge_taken");
+				if (judge != null) {
+					player.sendSystemMessage(Component.literal("  → " + judge.getGameProfile().name()).withStyle(ChatFormatting.GRAY));
+				}
+				return false;
 			}
-			return false;
+			session.setJudge(player.getUUID());
 		}
 		if (session.roles().get(player.getUUID()) == role) {
 			return true; // already in that seat
@@ -143,6 +146,9 @@ public final class CourtService {
 			return false;
 		}
 		CourtManager.session().setRole(target.getUUID(), role);
+		if (role == CourtRole.JUDGE) {
+			CourtManager.session().setJudge(target.getUUID());
+		}
 		CourtManager.broadcast(executor.level().getServer(),
 				Component.translatable("court.aceattorney.role_assigned", target.getDisplayName(), role.displayName()));
 		broadcastState(executor.level().getServer());
@@ -322,8 +328,11 @@ public final class CourtService {
 					ModSounds.GAVEL, SoundSource.PLAYERS, 1.0f, 1.0f);
 			CourtManager.broadcast(player.level().getServer(),
 					Component.translatable("chat.aceattorney.order", player.getDisplayName()));
+		} else if (!session.hasJudge()) {
+			// the judge seat is vacant (e.g. the judge clicked another bench by accident)
+			claimRole(player, CourtRole.JUDGE);
 		} else {
-			fail(player, "court.aceattorney.session_running");
+			fail(player, "court.aceattorney.judge_taken");
 		}
 	}
 
