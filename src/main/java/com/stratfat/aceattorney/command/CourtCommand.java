@@ -43,6 +43,7 @@ public class CourtCommand {
 			court.then(Commands.literal("end").executes(asPlayer(CourtService::end)));
 			court.then(Commands.literal("roles").executes(CourtCommand::listRoles));
 			court.then(Commands.literal("log").executes(CourtCommand::listLog));
+			court.then(Commands.literal("protocol").executes(CourtCommand::listProtocol));
 
 			LiteralArgumentBuilder<CommandSourceStack> role = Commands.literal("role");
 			for (CourtRole r : CourtRole.values()) {
@@ -137,9 +138,30 @@ public class CourtCommand {
 		if (player == null) {
 			return 0;
 		}
-		String text = StringArgumentType.getString(ctx, "text");
-		ModNetworking.broadcastDialogue(player,
-				new DialogueS2CPayload(player.getGameProfile().name(), text, 0), 32);
+		return CourtService.say(player, StringArgumentType.getString(ctx, "text")) ? 1 : 0;
+	}
+
+	private static int listProtocol(CommandContext<CommandSourceStack> ctx) {
+		CourtSession session = CourtManager.session();
+		if (session == null) {
+			ctx.getSource().sendFailure(Component.translatable("court.aceattorney.no_session"));
+			return 0;
+		}
+		ServerPlayer player = ctx.getSource().getPlayer();
+		boolean clerk = player != null && session.roles().get(player.getUUID()) == CourtRole.CLERK;
+		if (!clerk && !ctx.getSource().permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER)) {
+			ctx.getSource().sendFailure(Component.translatable("court.aceattorney.clerk_only"));
+			return 0;
+		}
+		ctx.getSource().sendSuccess(() -> Component.translatable("gui.aceattorney.protocol_title").withStyle(ChatFormatting.AQUA), false);
+		var protocol = session.protocol();
+		for (int i = Math.max(0, protocol.size() - 20); i < protocol.size(); i++) {
+			CourtSession.LogEntry e = protocol.get(i);
+			ctx.getSource().sendSuccess(() -> Component.literal(" [" + e.time() + "] ")
+					.withStyle(ChatFormatting.DARK_AQUA)
+					.append(Component.literal(e.actor() + " ").withStyle(ChatFormatting.WHITE))
+					.append(Component.literal(e.text()).withStyle(ChatFormatting.GRAY)), false);
+		}
 		return 1;
 	}
 

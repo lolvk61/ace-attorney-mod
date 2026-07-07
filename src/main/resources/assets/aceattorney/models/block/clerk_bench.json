@@ -1,9 +1,9 @@
 {
 	"parent": "minecraft:block/block",
 	"textures": {
-		"side": "aceattorney:block/defendant_bench_side",
-		"top": "aceattorney:block/defendant_bench_top",
-		"particle": "aceattorney:block/defendant_bench_side"
+		"side": "aceattorney:block/clerk_bench_side",
+		"top": "aceattorney:block/clerk_bench_top",
+		"particle": "aceattorney:block/clerk_bench_side"
 	},
 	"elements": [
 		{

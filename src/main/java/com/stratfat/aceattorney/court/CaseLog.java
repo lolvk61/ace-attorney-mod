@@ -23,7 +23,7 @@ import net.minecraft.world.level.storage.LevelResource;
  * aceattorney_case_log.json in the world root, so it survives restarts.
  */
 public final class CaseLog {
-	public record CaseRecord(int number, String name, String judge, String verdict, String date) {
+	public record CaseRecord(int number, String name, String judge, String verdict, String date, JsonArray protocol) {
 	}
 
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
@@ -48,7 +48,8 @@ public final class CaseLog {
 						o.get("name").getAsString(),
 						o.get("judge").getAsString(),
 						o.get("verdict").getAsString(),
-						o.get("date").getAsString()));
+						o.get("date").getAsString(),
+						o.has("protocol") ? o.getAsJsonArray("protocol") : new JsonArray()));
 			}
 		} catch (Exception e) {
 			AceAttorney.LOGGER.warn("Could not read case log {}", file, e);
@@ -63,8 +64,16 @@ public final class CaseLog {
 		return RECORDS.isEmpty() ? 1 : RECORDS.get(RECORDS.size() - 1).number() + 1;
 	}
 
-	public static void append(int number, String name, String judge, String verdict) {
-		RECORDS.add(new CaseRecord(number, name, judge, verdict, LocalDate.now().format(DATE_FORMAT)));
+	public static void append(int number, String name, String judge, String verdict, List<CourtSession.LogEntry> protocol) {
+		JsonArray protocolJson = new JsonArray();
+		for (CourtSession.LogEntry entry : protocol) {
+			JsonObject o = new JsonObject();
+			o.addProperty("time", entry.time());
+			o.addProperty("actor", entry.actor());
+			o.addProperty("text", entry.text());
+			protocolJson.add(o);
+		}
+		RECORDS.add(new CaseRecord(number, name, judge, verdict, LocalDate.now().format(DATE_FORMAT), protocolJson));
 		save();
 	}
 
@@ -80,6 +89,7 @@ public final class CaseLog {
 			o.addProperty("judge", r.judge());
 			o.addProperty("verdict", r.verdict());
 			o.addProperty("date", r.date());
+			o.add("protocol", r.protocol());
 			array.add(o);
 		}
 		try {
@@ -89,6 +99,7 @@ public final class CaseLog {
 		}
 	}
 
+	/** Summary for the GUI journal — protocols stay in the file to keep packets small. */
 	public static JsonArray toJson() {
 		JsonArray array = new JsonArray();
 		for (CaseRecord r : RECORDS) {

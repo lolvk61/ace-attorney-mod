@@ -95,5 +95,11 @@
     "gui.aceattorney.save":  "Save",
     "court.aceattorney.edit_not_allowed":  "Only the statement\u0027s author or the judge may edit it.",
     "court.aceattorney.statement_edited":  "✎ %s revises statement #%s!",
-    "gui.aceattorney.edit_title":  "Amending statement #%s:"
+    "gui.aceattorney.edit_title":  "Amending statement #%s:",
+    "role.aceattorney.clerk":  "Court Clerk",
+    "court.aceattorney.clerk_only":  "Only the court clerk has access to the protocol.",
+    "block.aceattorney.clerk_bench":  "Clerk\u0027s Bench",
+    "gui.aceattorney.protocol_empty":  "The protocol is empty so far",
+    "gui.aceattorney.protocol_title":  "SESSION PROTOCOL",
+    "gui.aceattorney.protocol":  "Protocol"
 }

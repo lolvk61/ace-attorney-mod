@@ -1,5 +1,8 @@
 {
 	"variants": {
-		"": { "model": "aceattorney:block/witness_stand" }
+		"facing=north": { "model": "aceattorney:block/witness_stand" },
+		"facing=east": { "model": "aceattorney:block/witness_stand", "y": 90 },
+		"facing=south": { "model": "aceattorney:block/witness_stand", "y": 180 },
+		"facing=west": { "model": "aceattorney:block/witness_stand", "y": 270 }
 	}
 }

@@ -5,6 +5,7 @@
                    "aceattorney:witness_stand",
                    "aceattorney:defense_bench",
                    "aceattorney:prosecution_bench",
-                   "aceattorney:defendant_bench"
+                   "aceattorney:defendant_bench",
+                   "aceattorney:clerk_bench"
                ]
 }

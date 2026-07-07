@@ -11,10 +11,15 @@ public class CourtSession {
 	public record Statement(String speaker, String text) {
 	}
 
+	/** One line of the clerk's session protocol: who did what and when. */
+	public record LogEntry(String time, String actor, String text) {
+	}
+
 	private UUID judge;
 	private final Map<UUID, CourtRole> roles = new LinkedHashMap<>();
 	private final List<Evidence> evidence = new ArrayList<>();
 	private final List<Statement> testimony = new ArrayList<>();
+	private final List<LogEntry> protocol = new ArrayList<>();
 	private String caseName = "";
 	private int caseNumber;
 
@@ -46,6 +51,10 @@ public class CourtSession {
 
 	public List<Statement> testimony() {
 		return testimony;
+	}
+
+	public List<LogEntry> protocol() {
+		return protocol;
 	}
 
 	public String caseName() {

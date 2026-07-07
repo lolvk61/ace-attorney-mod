@@ -43,6 +43,7 @@ public class ModNetworking {
 		}
 		LAST_SHOUT.put(player.getUUID(), now);
 		broadcastShout(player, shout);
+		com.stratfat.aceattorney.court.CourtService.logShout(player, shout);
 	}
 
 	public static void broadcastShout(ServerPlayer source, ShoutType shout) {

@@ -25,7 +25,45 @@ import net.minecraft.world.item.ItemStack;
  * the Court Record GUI (via CourtActionC2SPayload).
  */
 public final class CourtService {
+	private static final java.time.format.DateTimeFormatter TIME_FORMAT =
+			java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss");
+
 	private CourtService() {
+	}
+
+	/** Add a line to the clerk's session protocol (who, when, what). */
+	public static void protocol(ServerPlayer actor, String text) {
+		CourtSession session = CourtManager.session();
+		if (session == null) {
+			return;
+		}
+		session.protocol().add(new CourtSession.LogEntry(
+				java.time.LocalTime.now().format(TIME_FORMAT),
+				actor.getGameProfile().name(), text));
+		broadcastState(actor.level().getServer());
+	}
+
+	/** Keybind shouts of trial participants go on record. */
+	public static void logShout(ServerPlayer player, com.stratfat.aceattorney.ShoutType type) {
+		CourtSession session = CourtManager.session();
+		if (session == null || !session.isParticipant(player.getUUID())) {
+			return;
+		}
+		protocol(player, "выкрикивает: " + type.name().replace('_', ' ') + "!");
+	}
+
+	/** AA-style speech (/aa say and the GUI say row). */
+	public static boolean say(ServerPlayer player, String text) {
+		if (text.isBlank()) {
+			return false;
+		}
+		ModNetworking.broadcastDialogue(player,
+				new DialogueS2CPayload(player.getGameProfile().name(), text.trim(), 0), 32);
+		CourtSession session = CourtManager.session();
+		if (session != null && session.isParticipant(player.getUUID())) {
+			protocol(player, "говорит: «" + text.trim() + "»");
+		}
+		return true;
 	}
 
 	// ---------- session ----------
@@ -56,6 +94,8 @@ public final class CourtService {
 				ModSounds.GAVEL, 1.0f);
 		CourtManager.broadcast(player.level().getServer(),
 				Component.translatable("court.aceattorney.hint_roles").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+		protocol(player, "открывает заседание по делу №" + session.caseNumber()
+				+ (session.caseName().isEmpty() ? "" : " «" + session.caseName() + "»"));
 		broadcastState(player.level().getServer());
 		return true;
 	}
@@ -68,6 +108,7 @@ public final class CourtService {
 			fail(player, "court.aceattorney.judge_only");
 			return false;
 		}
+		protocol(player, "закрывает заседание без вердикта");
 		logCase(player, "dismissed");
 		CourtManager.end();
 		CourtManager.broadcast(player.level().getServer(),
@@ -90,6 +131,7 @@ public final class CourtService {
 		CourtManager.broadcastTitle(player.level().getServer(), title,
 				Component.translatable("court.aceattorney.verdict.sub"),
 				ModSounds.GAVEL, guilty ? 0.8f : 1.2f);
+		protocol(player, "выносит вердикт: " + (guilty ? "ВИНОВЕН" : "НЕВИНОВЕН"));
 		logCase(player, guilty ? "guilty" : "not_guilty");
 		CourtManager.end();
 		broadcastState(player.level().getServer());
@@ -103,7 +145,7 @@ public final class CourtService {
 		}
 		ServerPlayer judge = anyPlayer.level().getServer().getPlayerList().getPlayer(session.judge());
 		CaseLog.append(session.caseNumber(), session.caseName(),
-				judge != null ? judge.getGameProfile().name() : "?", verdict);
+				judge != null ? judge.getGameProfile().name() : "?", verdict, session.protocol());
 	}
 
 	// ---------- roles ----------
@@ -132,6 +174,7 @@ public final class CourtService {
 		session.setRole(player.getUUID(), role);
 		CourtManager.broadcast(player.level().getServer(),
 				Component.translatable("court.aceattorney.role_assigned", player.getDisplayName(), role.displayName()));
+		protocol(player, "занимает место: " + role.displayName().getString());
 		broadcastState(player.level().getServer());
 		return true;
 	}
@@ -151,6 +194,7 @@ public final class CourtService {
 		}
 		CourtManager.broadcast(executor.level().getServer(),
 				Component.translatable("court.aceattorney.role_assigned", target.getDisplayName(), role.displayName()));
+		protocol(executor, "назначает " + target.getGameProfile().name() + " на роль: " + role.displayName().getString());
 		broadcastState(executor.level().getServer());
 		return true;
 	}
@@ -167,6 +211,7 @@ public final class CourtService {
 				Component.translatable("court.aceattorney.evidence_added",
 						player.getDisplayName(),
 						Component.literal(name).withStyle(ChatFormatting.YELLOW)));
+		protocol(player, "приобщает улику «" + name + "»: " + description);
 		broadcastState(player.level().getServer());
 		return true;
 	}
@@ -186,6 +231,7 @@ public final class CourtService {
 		}
 		Evidence removed = session.evidence().remove(index - 1);
 		player.sendSystemMessage(Component.translatable("court.aceattorney.evidence_removed", removed.name()));
+		protocol(player, "изымает улику «" + removed.name() + "»");
 		broadcastState(player.level().getServer());
 		return true;
 	}
@@ -207,6 +253,7 @@ public final class CourtService {
 						Component.literal(e.name()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)));
 		CourtManager.broadcast(player.level().getServer(),
 				Component.literal("  «" + e.description() + "»").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+		protocol(player, "предъявляет улику «" + e.name() + "»");
 		return true;
 	}
 
@@ -225,6 +272,7 @@ public final class CourtService {
 		session.testimony().add(new CourtSession.Statement(player.getGameProfile().name(), text));
 		int number = session.testimony().size();
 		player.sendSystemMessage(Component.translatable("court.aceattorney.statement_added", number));
+		protocol(player, "даёт показание №" + number + ": «" + text + "»");
 		broadcastState(player.level().getServer());
 		return true;
 	}
@@ -248,6 +296,7 @@ public final class CourtService {
 		session.testimony().set(index - 1, new CourtSession.Statement(old.speaker(), text));
 		CourtManager.broadcast(player.level().getServer(),
 				Component.translatable("court.aceattorney.statement_edited", player.getDisplayName(), index));
+		protocol(player, "изменяет показание №" + index + ": «" + old.text() + "» → «" + text + "»");
 		ModNetworking.broadcastDialogueGlobal(player.level().getServer(),
 				new DialogueS2CPayload(old.speaker(), text, index));
 		broadcastState(player.level().getServer());
@@ -264,6 +313,7 @@ public final class CourtService {
 		}
 		CourtManager.session().testimony().clear();
 		player.sendSystemMessage(Component.translatable("court.aceattorney.testimony_cleared"));
+		protocol(player, "очищает список показаний");
 		broadcastState(player.level().getServer());
 		return true;
 	}
@@ -285,6 +335,7 @@ public final class CourtService {
 		for (CourtSession.Statement s : session.testimony()) {
 			ModNetworking.broadcastDialogueGlobal(server, new DialogueS2CPayload(s.speaker(), s.text(), i++));
 		}
+		protocol(player, "оглашает показания (" + session.testimony().size() + " шт.)");
 		return true;
 	}
 
@@ -308,6 +359,7 @@ public final class CourtService {
 				Component.translatable("court.aceattorney.press", player.getDisplayName(), index));
 		ModNetworking.broadcastDialogueGlobal(player.level().getServer(),
 				new DialogueS2CPayload(s.speaker(), s.text(), index));
+		protocol(player, "давит на показание №" + index + " («" + s.text() + "»)");
 		return true;
 	}
 
@@ -342,6 +394,8 @@ public final class CourtService {
 					Component.translatable("court.aceattorney.objection_plain",
 							player.getDisplayName(), statementIndex));
 		}
+		protocol(player, "заявляет протест против показания №" + statementIndex
+				+ (evidenceIndex > 0 ? " с уликой «" + session.evidence().get(evidenceIndex - 1).name() + "»" : ""));
 		return true;
 	}
 
@@ -386,13 +440,7 @@ public final class CourtService {
 				case "press" -> press(player, obj.get("index").getAsInt());
 				case "object" -> object(player, obj.get("statement").getAsInt(),
 						obj.has("evidence") ? obj.get("evidence").getAsInt() : 0);
-				case "say" -> {
-					String text = obj.get("text").getAsString().trim();
-					if (!text.isEmpty()) {
-						ModNetworking.broadcastDialogue(player,
-								new DialogueS2CPayload(player.getGameProfile().name(), text, 0), 32);
-					}
-				}
+				case "say" -> say(player, obj.get("text").getAsString());
 				default -> {
 				}
 			}
@@ -446,6 +494,19 @@ public final class CourtService {
 			testimony.add(js);
 		}
 		root.add("testimony", testimony);
+
+		// full protocol goes only to the court clerk
+		if (viewerRole == CourtRole.CLERK) {
+			JsonArray protocol = new JsonArray();
+			for (CourtSession.LogEntry entry : session.protocol()) {
+				JsonObject je = new JsonObject();
+				je.addProperty("time", entry.time());
+				je.addProperty("actor", entry.actor());
+				je.addProperty("text", entry.text());
+				protocol.add(je);
+			}
+			root.add("protocol", protocol);
+		}
 		return root;
 	}
 

@@ -1,8 +1,34 @@
 {
-	"parent": "minecraft:block/cube_bottom_top",
+	"parent": "minecraft:block/block",
 	"textures": {
+		"side": "aceattorney:block/witness_stand_side",
 		"top": "aceattorney:block/witness_stand_top",
-		"bottom": "aceattorney:block/witness_stand_side",
-		"side": "aceattorney:block/witness_stand_side"
-	}
+		"particle": "aceattorney:block/witness_stand_side"
+	},
+	"elements": [
+		{
+			"from": [2, 0, 2],
+			"to": [14, 12, 14],
+			"faces": {
+				"north": { "texture": "#side" },
+				"south": { "texture": "#side" },
+				"east": { "texture": "#side" },
+				"west": { "texture": "#side" },
+				"up": { "texture": "#side" },
+				"down": { "texture": "#side" }
+			}
+		},
+		{
+			"from": [0, 12, 0],
+			"to": [16, 15, 16],
+			"faces": {
+				"north": { "texture": "#side" },
+				"south": { "texture": "#side" },
+				"east": { "texture": "#side" },
+				"west": { "texture": "#side" },
+				"up": { "texture": "#top" },
+				"down": { "texture": "#side" }
+			}
+		}
+	]
 }

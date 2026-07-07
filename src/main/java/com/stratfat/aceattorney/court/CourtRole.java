@@ -8,7 +8,8 @@ public enum CourtRole {
 	DEFENSE("defense", ChatFormatting.BLUE),
 	PROSECUTION("prosecution", ChatFormatting.RED),
 	WITNESS("witness", ChatFormatting.GREEN),
-	DEFENDANT("defendant", ChatFormatting.GRAY);
+	DEFENDANT("defendant", ChatFormatting.GRAY),
+	CLERK("clerk", ChatFormatting.AQUA);
 
 	private final String id;
 	private final ChatFormatting color;

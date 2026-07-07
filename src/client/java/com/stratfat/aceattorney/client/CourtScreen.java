@@ -41,6 +41,8 @@ public class CourtScreen extends Screen {
 	private boolean addMode;
 	private boolean logMode;
 	private int logScroll;
+	private boolean protocolMode;
+	private int protScroll;
 	private int evOffset;
 	private int stOffset;
 	private int selEv = -1;
@@ -116,6 +118,22 @@ public class CourtScreen extends Screen {
 		selEv = Math.min(selEv, evidenceCount() - 1);
 		selSt = Math.min(selSt, testimonyCount() - 1);
 
+		if (protocolMode) {
+			if (protocolCount() > LOG_ROWS) {
+				addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
+					protScroll = Math.max(0, protScroll - 1);
+				}).bounds(left + PANEL_W - 22, top + 22, 14, 12).build());
+				addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
+					protScroll = Math.min(Math.max(0, protocolCount() - LOG_ROWS), protScroll + 1);
+				}).bounds(left + PANEL_W - 22, top + 22 + LOG_ROWS * 12 - 12, 14, 12).build());
+			}
+			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.back"), b -> {
+				protocolMode = false;
+				rebuild();
+			}).bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 26, 100, 18).build());
+			return;
+		}
+
 		if (logMode) {
 			if (logCount() > LOG_ROWS) {
 				addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
@@ -138,6 +156,13 @@ public class CourtScreen extends Screen {
 				logScroll = 0;
 				rebuild();
 			}).bounds(left + PANEL_W - 68, top + 4, 60, 14).build());
+			if (isClerk()) {
+				addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.protocol"), b -> {
+					protocolMode = true;
+					protScroll = Math.max(0, protocolCount() - LOG_ROWS);
+					rebuild();
+				}).bounds(left + 8, top + 4, 60, 14).build());
+			}
 		}
 
 		if (!isActive()) {
@@ -303,6 +328,14 @@ public class CourtScreen extends Screen {
 		return state != null && state.has("log") ? state.getAsJsonArray("log").size() : 0;
 	}
 
+	private static int protocolCount() {
+		return state != null && state.has("protocol") ? state.getAsJsonArray("protocol").size() : 0;
+	}
+
+	private boolean isClerk() {
+		return isActive() && "clerk".equals(state.get("yourRole").getAsString());
+	}
+
 	// ---------- state helpers ----------
 
 	private static boolean isActive() {
@@ -378,7 +411,7 @@ public class CourtScreen extends Screen {
 	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 		double mouseX = event.x();
 		double mouseY = event.y();
-		if (isActive() && !addMode && !logMode && editingIndex < 0 && event.button() == 0) {
+		if (isActive() && !addMode && !logMode && !protocolMode && editingIndex < 0 && event.button() == 0) {
 			int listY = top + LIST_TOP;
 			if (mouseY >= listY && mouseY < listY + ROWS * ROW_H) {
 				int row = (int) ((mouseY - listY) / ROW_H);
@@ -443,6 +476,11 @@ public class CourtScreen extends Screen {
 		}
 
 		super.render(graphics, mouseX, mouseY, partialTick);
+
+		if (protocolMode) {
+			renderProtocol(graphics);
+			return;
+		}
 
 		if (logMode) {
 			renderLog(graphics);
@@ -557,6 +595,30 @@ public class CourtScreen extends Screen {
 				graphics.drawString(font, lines.get(i), left + 8, y, 0xFFDDDDDD);
 				y += 10;
 			}
+		}
+	}
+
+	private void renderProtocol(GuiGraphics graphics) {
+		graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.protocol_title"),
+				left + PANEL_W / 2, top + 6, 0xFF7FDBE8);
+		int count = protocolCount();
+		if (count == 0) {
+			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.protocol_empty"),
+					left + PANEL_W / 2, top + PANEL_H / 2 - 10, 0xFFAAAAAA);
+			return;
+		}
+		JsonArray protocol = state.getAsJsonArray("protocol");
+		for (int row = 0; row < LOG_ROWS; row++) {
+			int idx = protScroll + row;
+			if (idx >= count) {
+				break;
+			}
+			JsonObject e = protocol.get(idx).getAsJsonObject();
+			String line = "[" + e.get("time").getAsString() + "] "
+					+ e.get("actor").getAsString() + " "
+					+ e.get("text").getAsString();
+			graphics.drawString(font, font.plainSubstrByWidth(line, PANEL_W - 40),
+					left + 8, top + 22 + row * 12, 0xFFCCDDE8);
 		}
 	}
 

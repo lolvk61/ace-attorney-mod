@@ -1,0 +1,8 @@
+{
+	"variants": {
+		"facing=north": { "model": "aceattorney:block/clerk_bench" },
+		"facing=east": { "model": "aceattorney:block/clerk_bench", "y": 90 },
+		"facing=south": { "model": "aceattorney:block/clerk_bench", "y": 180 },
+		"facing=west": { "model": "aceattorney:block/clerk_bench", "y": 270 }
+	}
+}
