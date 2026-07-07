@@ -30,7 +30,7 @@ public class CourtScreen extends Screen {
 	private static final int PANEL_H = 236;
 	private static final int ROWS = 7;
 	private static final int ROW_H = 11;
-	private static final int LIST_TOP = 34;
+	private static final int LIST_TOP = 44;
 
 	private static JsonObject state; // latest snapshot from the server
 
@@ -48,6 +48,7 @@ public class CourtScreen extends Screen {
 	private EditBox nameBox;
 	private EditBox descBox;
 	private EditBox statementBox;
+	private EditBox caseBox;
 
 	public CourtScreen() {
 		super(Component.translatable("gui.aceattorney.title"));
@@ -107,8 +108,13 @@ public class CourtScreen extends Screen {
 		selSt = Math.min(selSt, testimonyCount() - 1);
 
 		if (!isActive()) {
+			caseBox = new EditBox(font, left + PANEL_W / 2 - 100, top + PANEL_H / 2 - 32, 200, 18,
+					Component.translatable("gui.aceattorney.case_hint"));
+			caseBox.setMaxLength(40);
+			addRenderableWidget(caseBox);
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.start"),
-					b -> sendAction("start")).bounds(left + PANEL_W / 2 - 80, top + PANEL_H / 2 - 10, 160, 20).build());
+					b -> sendAction("start", "case", caseBox.getValue().trim()))
+					.bounds(left + PANEL_W / 2 - 80, top + PANEL_H / 2 - 6, 160, 20).build());
 			return;
 		}
 
@@ -138,7 +144,7 @@ public class CourtScreen extends Screen {
 		if (evidenceCount() > ROWS) {
 			addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
 				evOffset = Math.max(0, evOffset - 1);
-			}).bounds(left + 178, top + 18, 14, 12).build());
+			}).bounds(left + 178, top + 28, 14, 12).build());
 			addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
 				evOffset = Math.min(Math.max(0, evidenceCount() - ROWS), evOffset + 1);
 			}).bounds(left + 178, top + LIST_TOP + ROWS * ROW_H - 12, 14, 12).build());
@@ -146,7 +152,7 @@ public class CourtScreen extends Screen {
 		if (testimonyCount() > ROWS) {
 			addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
 				stOffset = Math.max(0, stOffset - 1);
-			}).bounds(left + PANEL_W - 22, top + 18, 14, 12).build());
+			}).bounds(left + PANEL_W - 22, top + 28, 14, 12).build());
 			addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
 				stOffset = Math.min(Math.max(0, testimonyCount() - ROWS), stOffset + 1);
 			}).bounds(left + PANEL_W - 22, top + LIST_TOP + ROWS * ROW_H - 12, 14, 12).build());
@@ -158,13 +164,13 @@ public class CourtScreen extends Screen {
 					if (selEv >= 0) {
 						sendAction("present", "index", selEv + 1);
 					}
-				}).bounds(left + 8, top + 150, 92, 18).build());
+				}).bounds(left + 8, top + 158, 92, 18).build());
 		pressBtn = addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.press"),
 				b -> {
 					if (selSt >= 0) {
 						sendAction("press", "index", selSt + 1);
 					}
-				}).bounds(left + 104, top + 150, 92, 18).build());
+				}).bounds(left + 104, top + 158, 92, 18).build());
 		objectBtn = addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.object"),
 				b -> {
 					if (selSt >= 0) {
@@ -174,14 +180,14 @@ public class CourtScreen extends Screen {
 							sendAction("object", "statement", selSt + 1);
 						}
 					}
-				}).bounds(left + 200, top + 150, 92, 18).build());
+				}).bounds(left + 200, top + 158, 92, 18).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.add_evidence"), b -> {
 			addMode = true;
 			rebuild();
-		}).bounds(left + 296, top + 150, 96, 18).build());
+		}).bounds(left + 296, top + 158, 96, 18).build());
 
 		// statement row
-		statementBox = new EditBox(font, left + 8, top + 172, 268, 18, Component.translatable("gui.aceattorney.statement_hint"));
+		statementBox = new EditBox(font, left + 8, top + 180, 268, 18, Component.translatable("gui.aceattorney.statement_hint"));
 		statementBox.setMaxLength(200);
 		addRenderableWidget(statementBox);
 		addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.add_statement"), b -> {
@@ -189,18 +195,18 @@ public class CourtScreen extends Screen {
 				sendAction("add_statement", "text", statementBox.getValue().trim());
 				statementBox.setValue("");
 			}
-		}).bounds(left + 280, top + 172, 60, 18).build());
+		}).bounds(left + 280, top + 180, 60, 18).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.play_testimony"),
-				b -> sendAction("play_testimony")).bounds(left + 344, top + 172, 48, 18).build());
+				b -> sendAction("play_testimony")).bounds(left + 344, top + 180, 48, 18).build());
 
 		// judge row
 		if (isJudge()) {
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.guilty").withStyle(s -> s.withColor(0xFF5555)),
-					b -> sendAction("verdict", "guilty", true)).bounds(left + 8, top + 196, 110, 18).build());
+					b -> sendAction("verdict", "guilty", true)).bounds(left + 8, top + 204, 110, 18).build());
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.not_guilty").withStyle(s -> s.withColor(0x55FF7A)),
-					b -> sendAction("verdict", "guilty", false)).bounds(left + 122, top + 196, 110, 18).build());
+					b -> sendAction("verdict", "guilty", false)).bounds(left + 122, top + 204, 110, 18).build());
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.end"),
-					b -> sendAction("end")).bounds(left + 236, top + 196, 156, 18).build());
+					b -> sendAction("end")).bounds(left + 236, top + 204, 156, 18).build());
 		}
 	}
 
@@ -278,7 +284,11 @@ public class CourtScreen extends Screen {
 
 		super.render(graphics, mouseX, mouseY, partialTick);
 
-		graphics.drawCenteredString(font, title, left + PANEL_W / 2, top + 6, 0xFFFFD75E);
+		String caseName = isActive() && state.has("case") ? state.get("case").getAsString() : "";
+		Component header = caseName.isBlank()
+				? title
+				: Component.translatable("gui.aceattorney.title_case", caseName);
+		graphics.drawCenteredString(font, header, left + PANEL_W / 2, top + 6, 0xFFFFD75E);
 
 		if (!isActive()) {
 			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.no_session"),
@@ -336,7 +346,7 @@ public class CourtScreen extends Screen {
 		String detail = null;
 		if (selEv >= 0 && selEv < evidence.size()) {
 			JsonObject e = evidence.get(selEv).getAsJsonObject();
-			detail = e.get("name").getAsString() + " — " + e.get("desc").getAsString()
+			detail = e.get("name").getAsString() + " — " +e.get("desc").getAsString()
 					+ " (" + e.get("submitter").getAsString() + ")";
 		} else if (selSt >= 0 && selSt < testimony.size()) {
 			JsonObject s = testimony.get(selSt).getAsJsonObject();
@@ -344,7 +354,7 @@ public class CourtScreen extends Screen {
 		}
 		if (detail != null) {
 			List<FormattedCharSequence> lines = new ArrayList<>(font.split(FormattedText.of(detail), PANEL_W - 16));
-			int y = top + 118;
+			int y = top + 126;
 			for (int i = 0; i < Math.min(3, lines.size()); i++) {
 				graphics.drawString(font, lines.get(i), left + 8, y, 0xFFDDDDDD);
 				y += 10;

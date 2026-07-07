@@ -31,11 +31,20 @@ public final class CourtService {
 	// ---------- session ----------
 
 	public static boolean start(ServerPlayer player) {
+		return start(player, "");
+	}
+
+	public static boolean start(ServerPlayer player, String caseName) {
 		if (CourtManager.isActive()) {
 			fail(player, "court.aceattorney.already_active");
 			return false;
 		}
-		CourtManager.start(player);
+		CourtManager.start(player).setCaseName(caseName);
+		if (!CourtManager.session().caseName().isEmpty()) {
+			CourtManager.broadcast(player.level().getServer(),
+					Component.translatable("court.aceattorney.case",
+							Component.literal(CourtManager.session().caseName()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)));
+		}
 		CourtManager.broadcastTitle(player.level().getServer(),
 				Component.translatable("court.aceattorney.session_start").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
 				Component.translatable("court.aceattorney.session_start.sub", player.getDisplayName()),
@@ -304,7 +313,7 @@ public final class CourtService {
 			String action = obj.get("action").getAsString();
 			switch (action) {
 				case "request_state" -> sendState(player);
-				case "start" -> start(player);
+				case "start" -> start(player, obj.has("case") ? obj.get("case").getAsString() : "");
 				case "end" -> end(player);
 				case "verdict" -> verdict(player, obj.get("guilty").getAsBoolean());
 				case "claim_role" -> claimRole(player, CourtRole.valueOf(obj.get("role").getAsString().toUpperCase()));
@@ -344,6 +353,7 @@ public final class CourtService {
 		}
 		ServerPlayer judge = viewer.level().getServer().getPlayerList().getPlayer(session.judge());
 		root.addProperty("judge", judge != null ? judge.getGameProfile().name() : "?");
+		root.addProperty("case", session.caseName());
 		CourtRole viewerRole = session.roles().get(viewer.getUUID());
 		root.addProperty("yourRole", viewerRole != null ? viewerRole.id() : "");
 

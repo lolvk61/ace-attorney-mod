@@ -76,5 +76,8 @@
     "gui.aceattorney.play_testimony":  "▶ Все",
     "court.aceattorney.no_session_hint_block":  "Заседание не идёт. Начните его: ПКМ по скамье судьи.",
     "gui.aceattorney.title":  "СУДЕБНОЕ ДЕЛО",
-    "court.aceattorney.hint_roles":  "Занимайте места (ПКМ по столам и трибуне) • Судебное дело — клавиша G"
+    "court.aceattorney.hint_roles":  "Занимайте места (ПКМ по столам и трибуне) • Судебное дело — клавиша G",
+    "court.aceattorney.case":  "⚖ Слушается дело: %s",
+    "gui.aceattorney.title_case":  "ДЕЛО: «%s»",
+    "gui.aceattorney.case_hint":  "Название дела (необязательно)..."
 }

@@ -15,6 +15,7 @@ public class CourtSession {
 	private final Map<UUID, CourtRole> roles = new LinkedHashMap<>();
 	private final List<Evidence> evidence = new ArrayList<>();
 	private final List<Statement> testimony = new ArrayList<>();
+	private String caseName = "";
 
 	public CourtSession(UUID judge) {
 		this.judge = judge;
@@ -35,6 +36,14 @@ public class CourtSession {
 
 	public List<Statement> testimony() {
 		return testimony;
+	}
+
+	public String caseName() {
+		return caseName;
+	}
+
+	public void setCaseName(String caseName) {
+		this.caseName = caseName == null ? "" : caseName.trim();
 	}
 
 	public boolean isJudge(UUID player) {

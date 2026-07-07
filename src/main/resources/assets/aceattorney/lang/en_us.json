@@ -76,5 +76,8 @@
     "gui.aceattorney.play_testimony":  "▶ All",
     "court.aceattorney.no_session_hint_block":  "Court is not in session. Start it: right-click the judge\u0027s bench.",
     "gui.aceattorney.title":  "COURT RECORD",
-    "court.aceattorney.hint_roles":  "Take your seats (right-click the benches) • Court Record — press G"
+    "court.aceattorney.hint_roles":  "Take your seats (right-click the benches) • Court Record — press G",
+    "court.aceattorney.case":  "⚖ Now hearing the case: %s",
+    "gui.aceattorney.title_case":  "CASE: %s",
+    "gui.aceattorney.case_hint":  "Case title (optional)..."
 }

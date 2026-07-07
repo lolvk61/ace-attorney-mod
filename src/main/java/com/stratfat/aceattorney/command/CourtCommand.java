@@ -34,7 +34,11 @@ public class CourtCommand {
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 			LiteralArgumentBuilder<CommandSourceStack> court = Commands.literal("court");
 
-			court.then(Commands.literal("start").executes(asPlayer(CourtService::start)));
+			court.then(Commands.literal("start")
+					.executes(asPlayer(CourtService::start))
+					.then(Commands.argument("name", StringArgumentType.greedyString())
+							.executes(ctx -> asPlayerRun(ctx, p -> CourtService.start(p,
+									StringArgumentType.getString(ctx, "name"))))));
 			court.then(Commands.literal("end").executes(asPlayer(CourtService::end)));
 			court.then(Commands.literal("roles").executes(CourtCommand::listRoles));
 
