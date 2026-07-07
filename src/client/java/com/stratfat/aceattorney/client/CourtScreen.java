@@ -100,7 +100,8 @@ public class CourtScreen extends Screen {
 
 	private void rebuild() {
 		clearWidgets();
-		left = (width - PANEL_W) / 2;
+		// docked to the right edge so the world stays visible
+		left = Math.max(8, width - PANEL_W - 8);
 		top = (height - PANEL_H) / 2;
 		selEv = Math.min(selEv, evidenceCount() - 1);
 		selSt = Math.min(selSt, testimonyCount() - 1);
@@ -258,8 +259,8 @@ public class CourtScreen extends Screen {
 
 	@Override
 	public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-		super.renderBackground(graphics, mouseX, mouseY, partialTick);
-		graphics.fill(left, top, left + PANEL_W, top + PANEL_H, 0xF0101826);
+		// no super call: skip vanilla blur/dim so the world stays visible
+		graphics.fill(left, top, left + PANEL_W, top + PANEL_H, 0xB0101826);
 		graphics.fill(left, top, left + PANEL_W, top + 1, 0xFFB8C4E0);
 		graphics.fill(left, top + PANEL_H - 1, left + PANEL_W, top + PANEL_H, 0xFFB8C4E0);
 		graphics.fill(left, top, left + 1, top + PANEL_H, 0xFFB8C4E0);
@@ -277,11 +278,11 @@ public class CourtScreen extends Screen {
 
 		super.render(graphics, mouseX, mouseY, partialTick);
 
-		graphics.drawCenteredString(font, title, width / 2, top + 6, 0xFFFFD75E);
+		graphics.drawCenteredString(font, title, left + PANEL_W / 2, top + 6, 0xFFFFD75E);
 
 		if (!isActive()) {
 			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.no_session"),
-					width / 2, top + PANEL_H / 2 - 30, 0xFFAAAAAA);
+					left + PANEL_W / 2, top + PANEL_H / 2 - 30, 0xFFAAAAAA);
 			return;
 		}
 
@@ -292,7 +293,7 @@ public class CourtScreen extends Screen {
 				: Component.translatable("role.aceattorney." + role);
 		graphics.drawCenteredString(font,
 				Component.translatable("gui.aceattorney.status", judge, roleName),
-				width / 2, top + 18, 0xFFAAB4CC);
+				left + PANEL_W / 2, top + 18, 0xFFAAB4CC);
 
 		if (addMode) {
 			graphics.drawString(font, Component.translatable("gui.aceattorney.name"), left + 50, top + 50, 0xFFDDDDDD);
