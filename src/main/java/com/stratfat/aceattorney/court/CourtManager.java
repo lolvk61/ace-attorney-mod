@@ -15,6 +15,7 @@ public class CourtManager {
 	private static CourtSession session;
 
 	public static void init() {
+		ServerLifecycleEvents.SERVER_STARTED.register(CaseLog::load);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> session = null);
 	}
 

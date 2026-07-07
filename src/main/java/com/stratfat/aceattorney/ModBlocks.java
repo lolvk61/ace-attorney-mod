@@ -32,12 +32,14 @@ public class ModBlocks {
 	public static Block WITNESS_STAND;
 	public static Block DEFENSE_BENCH;
 	public static Block PROSECUTION_BENCH;
+	public static Block DEFENDANT_BENCH;
 
 	public static void init() {
 		JUDGE_BENCH = register("judge_bench");
 		WITNESS_STAND = register("witness_stand");
 		DEFENSE_BENCH = register("defense_bench");
 		PROSECUTION_BENCH = register("prosecution_bench");
+		DEFENDANT_BENCH = register("defendant_bench");
 
 		UseBlockCallback.EVENT.register(ModBlocks::onUseBlock);
 	}
@@ -48,7 +50,7 @@ public class ModBlocks {
 		}
 		BlockState state = level.getBlockState(hit.getBlockPos());
 		boolean ours = state.is(JUDGE_BENCH) || state.is(WITNESS_STAND)
-				|| state.is(DEFENSE_BENCH) || state.is(PROSECUTION_BENCH);
+				|| state.is(DEFENSE_BENCH) || state.is(PROSECUTION_BENCH) || state.is(DEFENDANT_BENCH);
 		if (!ours) {
 			return InteractionResult.PASS;
 		}
@@ -64,6 +66,8 @@ public class ModBlocks {
 			CourtService.claimRole(serverPlayer, CourtRole.WITNESS);
 		} else if (state.is(DEFENSE_BENCH)) {
 			CourtService.claimRole(serverPlayer, CourtRole.DEFENSE);
+		} else if (state.is(DEFENDANT_BENCH)) {
+			CourtService.claimRole(serverPlayer, CourtRole.DEFENDANT);
 		} else {
 			CourtService.claimRole(serverPlayer, CourtRole.PROSECUTION);
 		}

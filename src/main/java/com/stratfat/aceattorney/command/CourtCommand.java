@@ -6,6 +6,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
+import com.stratfat.aceattorney.court.CaseLog;
 import com.stratfat.aceattorney.court.CourtManager;
 import com.stratfat.aceattorney.court.CourtRole;
 import com.stratfat.aceattorney.court.CourtService;
@@ -41,6 +42,7 @@ public class CourtCommand {
 									StringArgumentType.getString(ctx, "name"))))));
 			court.then(Commands.literal("end").executes(asPlayer(CourtService::end)));
 			court.then(Commands.literal("roles").executes(CourtCommand::listRoles));
+			court.then(Commands.literal("log").executes(CourtCommand::listLog));
 
 			LiteralArgumentBuilder<CommandSourceStack> role = Commands.literal("role");
 			for (CourtRole r : CourtRole.values()) {
@@ -132,6 +134,29 @@ public class CourtCommand {
 		String text = StringArgumentType.getString(ctx, "text");
 		ModNetworking.broadcastDialogue(player,
 				new DialogueS2CPayload(player.getGameProfile().name(), text, 0), 32);
+		return 1;
+	}
+
+	private static int listLog(CommandContext<CommandSourceStack> ctx) {
+		var records = CaseLog.records();
+		if (records.isEmpty()) {
+			ctx.getSource().sendSuccess(() -> Component.translatable("gui.aceattorney.log_empty").withStyle(ChatFormatting.GRAY), false);
+			return 1;
+		}
+		ctx.getSource().sendSuccess(() -> Component.translatable("gui.aceattorney.log_title").withStyle(ChatFormatting.GOLD), false);
+		for (int i = Math.max(0, records.size() - 10); i < records.size(); i++) {
+			CaseLog.CaseRecord r = records.get(i);
+			Component verdict = switch (r.verdict()) {
+				case "guilty" -> Component.translatable("court.aceattorney.verdict.guilty").withStyle(ChatFormatting.RED);
+				case "not_guilty" -> Component.translatable("court.aceattorney.verdict.not_guilty").withStyle(ChatFormatting.GREEN);
+				default -> Component.translatable("court.aceattorney.verdict.dismissed").withStyle(ChatFormatting.GRAY);
+			};
+			Component line = Component.literal(" №" + r.number()
+							+ (r.name().isBlank() ? "" : " «" + r.name() + "»") + " — ")
+					.append(verdict)
+					.append(Component.literal(" • " + r.judge() + " • " + r.date()).withStyle(ChatFormatting.GRAY));
+			ctx.getSource().sendSuccess(() -> line, false);
+		}
 		return 1;
 	}
 

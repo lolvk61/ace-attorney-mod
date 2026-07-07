@@ -39,11 +39,16 @@ public final class CourtService {
 			fail(player, "court.aceattorney.already_active");
 			return false;
 		}
-		CourtManager.start(player).setCaseName(caseName);
-		if (!CourtManager.session().caseName().isEmpty()) {
+		CourtSession session = CourtManager.start(player);
+		session.setCaseName(caseName);
+		session.setCaseNumber(CaseLog.nextNumber());
+		if (!session.caseName().isEmpty()) {
 			CourtManager.broadcast(player.level().getServer(),
-					Component.translatable("court.aceattorney.case",
-							Component.literal(CourtManager.session().caseName()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)));
+					Component.translatable("court.aceattorney.case", session.caseNumber(),
+							Component.literal(session.caseName()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)));
+		} else {
+			CourtManager.broadcast(player.level().getServer(),
+					Component.translatable("court.aceattorney.case_number", session.caseNumber()));
 		}
 		CourtManager.broadcastTitle(player.level().getServer(),
 				Component.translatable("court.aceattorney.session_start").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
@@ -63,6 +68,7 @@ public final class CourtService {
 			fail(player, "court.aceattorney.judge_only");
 			return false;
 		}
+		logCase(player, "dismissed");
 		CourtManager.end();
 		CourtManager.broadcast(player.level().getServer(),
 				Component.translatable("court.aceattorney.session_end").withStyle(ChatFormatting.GOLD));
@@ -84,9 +90,20 @@ public final class CourtService {
 		CourtManager.broadcastTitle(player.level().getServer(), title,
 				Component.translatable("court.aceattorney.verdict.sub"),
 				ModSounds.GAVEL, guilty ? 0.8f : 1.2f);
+		logCase(player, guilty ? "guilty" : "not_guilty");
 		CourtManager.end();
 		broadcastState(player.level().getServer());
 		return true;
+	}
+
+	private static void logCase(ServerPlayer anyPlayer, String verdict) {
+		CourtSession session = CourtManager.session();
+		if (session == null) {
+			return;
+		}
+		ServerPlayer judge = anyPlayer.level().getServer().getPlayerList().getPlayer(session.judge());
+		CaseLog.append(session.caseNumber(), session.caseName(),
+				judge != null ? judge.getGameProfile().name() : "?", verdict);
 	}
 
 	// ---------- roles ----------
@@ -240,6 +257,11 @@ public final class CourtService {
 			return false;
 		}
 		CourtSession session = CourtManager.session();
+		CourtRole role = session.roles().get(player.getUUID());
+		if (role != CourtRole.DEFENSE && role != CourtRole.DEFENDANT) {
+			fail(player, "court.aceattorney.press_defense_only");
+			return false;
+		}
 		if (index < 1 || index > session.testimony().size()) {
 			fail(player, "court.aceattorney.no_such_statement");
 			return false;
@@ -324,6 +346,13 @@ public final class CourtService {
 				case "press" -> press(player, obj.get("index").getAsInt());
 				case "object" -> object(player, obj.get("statement").getAsInt(),
 						obj.has("evidence") ? obj.get("evidence").getAsInt() : 0);
+				case "say" -> {
+					String text = obj.get("text").getAsString().trim();
+					if (!text.isEmpty()) {
+						ModNetworking.broadcastDialogue(player,
+								new DialogueS2CPayload(player.getGameProfile().name(), text, 0), 32);
+					}
+				}
 				default -> {
 				}
 			}
@@ -348,12 +377,14 @@ public final class CourtService {
 		JsonObject root = new JsonObject();
 		CourtSession session = CourtManager.session();
 		root.addProperty("active", session != null);
+		root.add("log", CaseLog.toJson());
 		if (session == null) {
 			return root;
 		}
 		ServerPlayer judge = viewer.level().getServer().getPlayerList().getPlayer(session.judge());
 		root.addProperty("judge", judge != null ? judge.getGameProfile().name() : "?");
 		root.addProperty("case", session.caseName());
+		root.addProperty("caseNumber", session.caseNumber());
 		CourtRole viewerRole = session.roles().get(viewer.getUUID());
 		root.addProperty("yourRole", viewerRole != null ? viewerRole.id() : "");
 

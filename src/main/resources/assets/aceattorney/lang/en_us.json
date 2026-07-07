@@ -77,7 +77,17 @@
     "court.aceattorney.no_session_hint_block":  "Court is not in session. Start it: right-click the judge\u0027s bench.",
     "gui.aceattorney.title":  "COURT RECORD",
     "court.aceattorney.hint_roles":  "Take your seats (right-click the benches) • Court Record — press G",
-    "court.aceattorney.case":  "⚖ Now hearing the case: %s",
-    "gui.aceattorney.title_case":  "CASE: %s",
-    "gui.aceattorney.case_hint":  "Case title (optional)..."
+    "gui.aceattorney.case_hint":  "Case title (optional)...",
+    "gui.aceattorney.title_case_nameless":  "CASE No. %s",
+    "gui.aceattorney.log_title":  "COURT CASE LOG",
+    "court.aceattorney.press_defense_only":  "Only the defense may press statements.",
+    "gui.aceattorney.say":  "Say",
+    "block.aceattorney.defendant_bench":  "Defendant\u0027s Bench",
+    "gui.aceattorney.log":  "Case Log",
+    "gui.aceattorney.log_empty":  "No cases on record yet",
+    "court.aceattorney.case_number":  "⚖ Now hearing case No. %s",
+    "gui.aceattorney.title_case":  "CASE No. %s: %s",
+    "court.aceattorney.verdict.dismissed":  "DISMISSED",
+    "gui.aceattorney.say_hint":  "Say something...",
+    "court.aceattorney.case":  "⚖ Now hearing case No. %s: %s"
 }

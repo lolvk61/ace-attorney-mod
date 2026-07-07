@@ -39,6 +39,7 @@ public class ModItems {
 					output.accept(ModBlocks.WITNESS_STAND);
 					output.accept(ModBlocks.DEFENSE_BENCH);
 					output.accept(ModBlocks.PROSECUTION_BENCH);
+					output.accept(ModBlocks.DEFENDANT_BENCH);
 				})
 				.build());
 

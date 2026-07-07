@@ -16,6 +16,7 @@ public class CourtSession {
 	private final List<Evidence> evidence = new ArrayList<>();
 	private final List<Statement> testimony = new ArrayList<>();
 	private String caseName = "";
+	private int caseNumber;
 
 	public CourtSession(UUID judge) {
 		this.judge = judge;
@@ -44,6 +45,14 @@ public class CourtSession {
 
 	public void setCaseName(String caseName) {
 		this.caseName = caseName == null ? "" : caseName.trim();
+	}
+
+	public int caseNumber() {
+		return caseNumber;
+	}
+
+	public void setCaseNumber(int caseNumber) {
+		this.caseNumber = caseNumber;
 	}
 
 	public boolean isJudge(UUID player) {

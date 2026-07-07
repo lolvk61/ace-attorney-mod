@@ -16,6 +16,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
@@ -27,7 +28,8 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public class CourtScreen extends Screen {
 	private static final int PANEL_W = 400;
-	private static final int PANEL_H = 236;
+	private static final int PANEL_H = 258;
+	private static final int LOG_ROWS = 15;
 	private static final int ROWS = 7;
 	private static final int ROW_H = 11;
 	private static final int LIST_TOP = 44;
@@ -37,6 +39,8 @@ public class CourtScreen extends Screen {
 	private int left;
 	private int top;
 	private boolean addMode;
+	private boolean logMode;
+	private int logScroll;
 	private int evOffset;
 	private int stOffset;
 	private int selEv = -1;
@@ -49,6 +53,7 @@ public class CourtScreen extends Screen {
 	private EditBox descBox;
 	private EditBox statementBox;
 	private EditBox caseBox;
+	private EditBox sayBox;
 
 	public CourtScreen() {
 		super(Component.translatable("gui.aceattorney.title"));
@@ -106,6 +111,30 @@ public class CourtScreen extends Screen {
 		top = (height - PANEL_H) / 2;
 		selEv = Math.min(selEv, evidenceCount() - 1);
 		selSt = Math.min(selSt, testimonyCount() - 1);
+
+		if (logMode) {
+			if (logCount() > LOG_ROWS) {
+				addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
+					logScroll = Math.max(0, logScroll - 1);
+				}).bounds(left + PANEL_W - 22, top + 22, 14, 12).build());
+				addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
+					logScroll = Math.min(Math.max(0, logCount() - LOG_ROWS), logScroll + 1);
+				}).bounds(left + PANEL_W - 22, top + 22 + LOG_ROWS * 12 - 12, 14, 12).build());
+			}
+			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.back"), b -> {
+				logMode = false;
+				rebuild();
+			}).bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 26, 100, 18).build());
+			return;
+		}
+
+		if (!addMode) {
+			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.log"), b -> {
+				logMode = true;
+				logScroll = 0;
+				rebuild();
+			}).bounds(left + PANEL_W - 68, top + 4, 60, 14).build());
+		}
 
 		if (!isActive()) {
 			caseBox = new EditBox(font, left + PANEL_W / 2 - 100, top + PANEL_H / 2 - 32, 200, 18,
@@ -199,15 +228,30 @@ public class CourtScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.play_testimony"),
 				b -> sendAction("play_testimony")).bounds(left + 344, top + 180, 48, 18).build());
 
+		// say row (like /aa say)
+		sayBox = new EditBox(font, left + 8, top + 204, 300, 18, Component.translatable("gui.aceattorney.say_hint"));
+		sayBox.setMaxLength(200);
+		addRenderableWidget(sayBox);
+		addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.say"), b -> {
+			if (!sayBox.getValue().isBlank()) {
+				sendAction("say", "text", sayBox.getValue().trim());
+				sayBox.setValue("");
+			}
+		}).bounds(left + 312, top + 204, 80, 18).build());
+
 		// judge row
 		if (isJudge()) {
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.guilty").withStyle(s -> s.withColor(0xFF5555)),
-					b -> sendAction("verdict", "guilty", true)).bounds(left + 8, top + 204, 110, 18).build());
+					b -> sendAction("verdict", "guilty", true)).bounds(left + 8, top + 226, 110, 18).build());
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.not_guilty").withStyle(s -> s.withColor(0x55FF7A)),
-					b -> sendAction("verdict", "guilty", false)).bounds(left + 122, top + 204, 110, 18).build());
+					b -> sendAction("verdict", "guilty", false)).bounds(left + 122, top + 226, 110, 18).build());
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.end"),
-					b -> sendAction("end")).bounds(left + 236, top + 204, 156, 18).build());
+					b -> sendAction("end")).bounds(left + 236, top + 226, 156, 18).build());
 		}
+	}
+
+	private static int logCount() {
+		return state != null && state.has("log") ? state.getAsJsonArray("log").size() : 0;
 	}
 
 	// ---------- state helpers ----------
@@ -234,7 +278,7 @@ public class CourtScreen extends Screen {
 	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 		double mouseX = event.x();
 		double mouseY = event.y();
-		if (isActive() && !addMode && event.button() == 0) {
+		if (isActive() && !addMode && !logMode && event.button() == 0) {
 			int listY = top + LIST_TOP;
 			if (mouseY >= listY && mouseY < listY + ROWS * ROW_H) {
 				int row = (int) ((mouseY - listY) / ROW_H);
@@ -284,10 +328,21 @@ public class CourtScreen extends Screen {
 
 		super.render(graphics, mouseX, mouseY, partialTick);
 
+		if (logMode) {
+			renderLog(graphics);
+			return;
+		}
+
 		String caseName = isActive() && state.has("case") ? state.get("case").getAsString() : "";
-		Component header = caseName.isBlank()
-				? title
-				: Component.translatable("gui.aceattorney.title_case", caseName);
+		int caseNumber = isActive() && state.has("caseNumber") ? state.get("caseNumber").getAsInt() : 0;
+		Component header;
+		if (!isActive()) {
+			header = title;
+		} else if (caseName.isBlank()) {
+			header = Component.translatable("gui.aceattorney.title_case_nameless", caseNumber);
+		} else {
+			header = Component.translatable("gui.aceattorney.title_case", caseNumber, caseName);
+		}
 		graphics.drawCenteredString(font, header, left + PANEL_W / 2, top + 6, 0xFFFFD75E);
 
 		if (!isActive()) {
@@ -359,6 +414,44 @@ public class CourtScreen extends Screen {
 				graphics.drawString(font, lines.get(i), left + 8, y, 0xFFDDDDDD);
 				y += 10;
 			}
+		}
+	}
+
+	private void renderLog(GuiGraphics graphics) {
+		graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.log_title"),
+				left + PANEL_W / 2, top + 6, 0xFFFFD75E);
+		int count = logCount();
+		if (count == 0) {
+			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.log_empty"),
+					left + PANEL_W / 2, top + PANEL_H / 2 - 10, 0xFFAAAAAA);
+			return;
+		}
+		JsonArray log = state.getAsJsonArray("log");
+		for (int row = 0; row < LOG_ROWS; row++) {
+			int idx = count - 1 - logScroll - row; // latest first
+			if (idx < 0) {
+				break;
+			}
+			JsonObject r = log.get(idx).getAsJsonObject();
+			String verdict = r.get("verdict").getAsString();
+			String verdictText = switch (verdict) {
+				case "guilty" -> I18n.get("court.aceattorney.verdict.guilty");
+				case "not_guilty" -> I18n.get("court.aceattorney.verdict.not_guilty");
+				default -> I18n.get("court.aceattorney.verdict.dismissed");
+			};
+			int color = switch (verdict) {
+				case "guilty" -> 0xFFFF7070;
+				case "not_guilty" -> 0xFF70E890;
+				default -> 0xFFAAAAAA;
+			};
+			String name = r.get("name").getAsString();
+			String line = "№" + r.get("number").getAsInt()
+					+ (name.isBlank() ? "" : " «" + name + "»")
+					+ " — " + verdictText
+					+ " • " + r.get("judge").getAsString()
+					+ " • " + r.get("date").getAsString();
+			graphics.drawString(font, font.plainSubstrByWidth(line, PANEL_W - 40),
+					left + 8, top + 22 + row * 12, color);
 		}
 	}
 }

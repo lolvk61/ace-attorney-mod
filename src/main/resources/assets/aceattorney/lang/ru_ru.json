@@ -77,7 +77,17 @@
     "court.aceattorney.no_session_hint_block":  "Заседание не идёт. Начните его: ПКМ по скамье судьи.",
     "gui.aceattorney.title":  "СУДЕБНОЕ ДЕЛО",
     "court.aceattorney.hint_roles":  "Занимайте места (ПКМ по столам и трибуне) • Судебное дело — клавиша G",
-    "court.aceattorney.case":  "⚖ Слушается дело: %s",
-    "gui.aceattorney.title_case":  "ДЕЛО: «%s»",
-    "gui.aceattorney.case_hint":  "Название дела (необязательно)..."
+    "gui.aceattorney.case_hint":  "Название дела (необязательно)...",
+    "gui.aceattorney.title_case_nameless":  "ДЕЛО №%s",
+    "gui.aceattorney.log_title":  "ЖУРНАЛ СУДЕБНЫХ ДЕЛ",
+    "court.aceattorney.press_defense_only":  "Давить на показания может только сторона защиты.",
+    "gui.aceattorney.say":  "Сказать",
+    "block.aceattorney.defendant_bench":  "Стол обвиняемого",
+    "gui.aceattorney.log":  "Журнал",
+    "gui.aceattorney.log_empty":  "В журнале пока нет ни одного дела",
+    "court.aceattorney.case_number":  "⚖ Слушается дело №%s",
+    "gui.aceattorney.title_case":  "ДЕЛО №%s: «%s»",
+    "court.aceattorney.verdict.dismissed":  "ПРЕКРАЩЕНО",
+    "gui.aceattorney.say_hint":  "Сказать реплику...",
+    "court.aceattorney.case":  "⚖ Слушается дело №%s: %s"
 }
