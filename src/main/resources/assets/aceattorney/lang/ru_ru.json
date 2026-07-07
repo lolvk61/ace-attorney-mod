@@ -90,5 +90,10 @@
     "court.aceattorney.verdict.dismissed":  "ПРЕКРАЩЕНО",
     "gui.aceattorney.say_hint":  "Сказать реплику...",
     "court.aceattorney.case":  "⚖ Слушается дело №%s: %s",
-    "court.aceattorney.testimony_witness_only":  "Давать показания могут только свидетель и обвиняемый."
+    "court.aceattorney.testimony_witness_only":  "Давать показания могут только свидетель и обвиняемый.",
+    "gui.aceattorney.edit":  "✎ Изменить",
+    "gui.aceattorney.save":  "Сохранить",
+    "court.aceattorney.edit_not_allowed":  "Изменить показание может только его автор или судья.",
+    "court.aceattorney.statement_edited":  "✎ %s вносит поправку в показание №%s!",
+    "gui.aceattorney.edit_title":  "Изменение показания №%s:"
 }

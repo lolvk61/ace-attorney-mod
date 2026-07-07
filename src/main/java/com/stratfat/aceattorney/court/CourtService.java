@@ -229,6 +229,31 @@ public final class CourtService {
 		return true;
 	}
 
+	/** Amend a statement: allowed for its author and for the judge. */
+	public static boolean editStatement(ServerPlayer player, int index, String text) {
+		if (!requireParticipant(player)) {
+			return false;
+		}
+		CourtSession session = CourtManager.session();
+		if (index < 1 || index > session.testimony().size()) {
+			fail(player, "court.aceattorney.no_such_statement");
+			return false;
+		}
+		CourtSession.Statement old = session.testimony().get(index - 1);
+		boolean author = old.speaker().equals(player.getGameProfile().name());
+		if (!author && !isJudgeOrOp(player)) {
+			fail(player, "court.aceattorney.edit_not_allowed");
+			return false;
+		}
+		session.testimony().set(index - 1, new CourtSession.Statement(old.speaker(), text));
+		CourtManager.broadcast(player.level().getServer(),
+				Component.translatable("court.aceattorney.statement_edited", player.getDisplayName(), index));
+		ModNetworking.broadcastDialogueGlobal(player.level().getServer(),
+				new DialogueS2CPayload(old.speaker(), text, index));
+		broadcastState(player.level().getServer());
+		return true;
+	}
+
 	public static boolean clearTestimony(ServerPlayer player) {
 		if (!requireSession(player)) {
 			return false;
@@ -356,6 +381,7 @@ public final class CourtService {
 				case "add_evidence" -> addEvidence(player, obj.get("name").getAsString(), obj.get("desc").getAsString());
 				case "present" -> present(player, obj.get("index").getAsInt());
 				case "add_statement" -> addStatement(player, obj.get("text").getAsString());
+				case "edit_statement" -> editStatement(player, obj.get("index").getAsInt(), obj.get("text").getAsString());
 				case "play_testimony" -> playTestimony(player);
 				case "press" -> press(player, obj.get("index").getAsInt());
 				case "object" -> object(player, obj.get("statement").getAsInt(),

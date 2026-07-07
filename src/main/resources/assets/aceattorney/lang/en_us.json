@@ -90,5 +90,10 @@
     "court.aceattorney.verdict.dismissed":  "DISMISSED",
     "gui.aceattorney.say_hint":  "Say something...",
     "court.aceattorney.case":  "⚖ Now hearing case No. %s: %s",
-    "court.aceattorney.testimony_witness_only":  "Only the witness and the defendant may testify."
+    "court.aceattorney.testimony_witness_only":  "Only the witness and the defendant may testify.",
+    "gui.aceattorney.edit":  "✎ Edit",
+    "gui.aceattorney.save":  "Save",
+    "court.aceattorney.edit_not_allowed":  "Only the statement\u0027s author or the judge may edit it.",
+    "court.aceattorney.statement_edited":  "✎ %s revises statement #%s!",
+    "gui.aceattorney.edit_title":  "Amending statement #%s:"
 }

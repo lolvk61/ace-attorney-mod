@@ -82,6 +82,12 @@ public class CourtCommand {
 							.then(Commands.argument("text", StringArgumentType.greedyString())
 									.executes(ctx -> asPlayerRun(ctx, p -> CourtService.addStatement(p,
 											StringArgumentType.getString(ctx, "text"))))))
+					.then(Commands.literal("edit")
+							.then(Commands.argument("statement", IntegerArgumentType.integer(1))
+									.then(Commands.argument("text", StringArgumentType.greedyString())
+											.executes(ctx -> asPlayerRun(ctx, p -> CourtService.editStatement(p,
+													IntegerArgumentType.getInteger(ctx, "statement"),
+													StringArgumentType.getString(ctx, "text")))))))
 					.then(Commands.literal("list").executes(CourtCommand::listTestimony))
 					.then(Commands.literal("play").executes(asPlayer(CourtService::playTestimony)))
 					.then(Commands.literal("clear").executes(asPlayer(CourtService::clearTestimony))));

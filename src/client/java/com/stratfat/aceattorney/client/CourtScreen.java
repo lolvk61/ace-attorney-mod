@@ -50,6 +50,9 @@ public class CourtScreen extends Screen {
 	private Button presentBtn;
 	private Button pressBtn;
 	private Button objectBtn;
+	private Button editBtn;
+	private int editingIndex = -1;
+	private EditBox editBox;
 	private EditBox nameBox;
 	private EditBox descBox;
 	private EditBox statementBox;
@@ -148,6 +151,32 @@ public class CourtScreen extends Screen {
 			return;
 		}
 
+		if (editingIndex >= 0) {
+			if (editingIndex >= testimonyCount()) {
+				editingIndex = -1;
+			} else {
+				String current = state.getAsJsonArray("testimony").get(editingIndex)
+						.getAsJsonObject().get("text").getAsString();
+				editBox = new EditBox(font, left + 50, top + 80, 300, 18, Component.translatable("gui.aceattorney.statement_hint"));
+				editBox.setMaxLength(200);
+				editBox.setValue(current);
+				addRenderableWidget(editBox);
+				final int idx = editingIndex;
+				addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.save"), b -> {
+					if (!editBox.getValue().isBlank()) {
+						sendAction("edit_statement", "index", idx + 1, "text", editBox.getValue().trim());
+						editingIndex = -1;
+						rebuild();
+					}
+				}).bounds(left + 50, top + 120, 150, 20).build());
+				addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.back"), b -> {
+					editingIndex = -1;
+					rebuild();
+				}).bounds(left + 210, top + 120, 100, 20).build());
+				return;
+			}
+		}
+
 		if (addMode) {
 			nameBox = new EditBox(font, left + 50, top + 60, 300, 18, Component.translatable("gui.aceattorney.name"));
 			nameBox.setMaxLength(60);
@@ -195,6 +224,13 @@ public class CourtScreen extends Screen {
 				rebuild();
 			}).bounds(left + PANEL_W - 40, top + LIST_TOP - 14, 14, 12).build());
 		}
+
+		editBtn = addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.edit"), b -> {
+			if (selSt >= 0 && canEditSelected()) {
+				editingIndex = selSt;
+				rebuild();
+			}
+		}).bounds(left + PANEL_W - 74, top + 123, 66, 13).build());
 
 		// action row
 		presentBtn = addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.present"),
@@ -277,6 +313,22 @@ public class CourtScreen extends Screen {
 		return isActive() && "judge".equals(state.get("yourRole").getAsString());
 	}
 
+	/** The selected statement can be edited by its author and by the judge. */
+	private boolean canEditSelected() {
+		if (selSt < 0 || selSt >= testimonyCount()) {
+			return false;
+		}
+		if (isJudge()) {
+			return true;
+		}
+		var player = Minecraft.getInstance().player;
+		if (player == null) {
+			return false;
+		}
+		String speaker = state.getAsJsonArray("testimony").get(selSt).getAsJsonObject().get("speaker").getAsString();
+		return speaker.equals(player.getGameProfile().name());
+	}
+
 	private static int evidenceCount() {
 		return isActive() ? state.getAsJsonArray("evidence").size() : 0;
 	}
@@ -326,7 +378,7 @@ public class CourtScreen extends Screen {
 	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 		double mouseX = event.x();
 		double mouseY = event.y();
-		if (isActive() && !addMode && !logMode && event.button() == 0) {
+		if (isActive() && !addMode && !logMode && editingIndex < 0 && event.button() == 0) {
 			int listY = top + LIST_TOP;
 			if (mouseY >= listY && mouseY < listY + ROWS * ROW_H) {
 				int row = (int) ((mouseY - listY) / ROW_H);
@@ -385,6 +437,9 @@ public class CourtScreen extends Screen {
 			presentBtn.active = participant && selEv >= 0;
 			pressBtn.active = participant && selSt >= 0;
 			objectBtn.active = participant && selSt >= 0;
+			if (editBtn != null) {
+				editBtn.active = participant && canEditSelected();
+			}
 		}
 
 		super.render(graphics, mouseX, mouseY, partialTick);
@@ -420,6 +475,12 @@ public class CourtScreen extends Screen {
 		graphics.drawCenteredString(font,
 				Component.translatable("gui.aceattorney.status", judge, roleName),
 				left + PANEL_W / 2, top + 18, 0xFFAAB4CC);
+
+		if (editingIndex >= 0) {
+			graphics.drawString(font, Component.translatable("gui.aceattorney.edit_title", editingIndex + 1),
+					left + 50, top + 66, 0xFFDDDDDD);
+			return;
+		}
 
 		if (addMode) {
 			graphics.drawString(font, Component.translatable("gui.aceattorney.name"), left + 50, top + 50, 0xFFDDDDDD);
@@ -490,7 +551,7 @@ public class CourtScreen extends Screen {
 			detail = "№" + (selSt + 1) + " (" + s.get("speaker").getAsString() + "): " + s.get("text").getAsString();
 		}
 		if (detail != null) {
-			List<FormattedCharSequence> lines = new ArrayList<>(font.split(FormattedText.of(detail), PANEL_W - 16));
+			List<FormattedCharSequence> lines = new ArrayList<>(font.split(FormattedText.of(detail), PANEL_W - 96));
 			int y = top + 126;
 			for (int i = 0; i < Math.min(3, lines.size()); i++) {
 				graphics.drawString(font, lines.get(i), left + 8, y, 0xFFDDDDDD);
