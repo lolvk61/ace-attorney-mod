@@ -4,6 +4,7 @@ import com.stratfat.aceattorney.AceAttorney;
 import com.stratfat.aceattorney.ShoutType;
 import com.stratfat.aceattorney.net.CourtStateS2CPayload;
 import com.stratfat.aceattorney.net.DialogueS2CPayload;
+import com.stratfat.aceattorney.net.ProtocolExportS2CPayload;
 import com.stratfat.aceattorney.net.ShoutC2SPayload;
 import com.stratfat.aceattorney.net.ShoutS2CPayload;
 
@@ -63,6 +64,10 @@ public class AceAttorneyClient implements ClientModInitializer {
 
 		ClientPlayNetworking.registerGlobalReceiver(CourtStateS2CPayload.TYPE, (payload, context) -> {
 			context.client().execute(() -> CourtScreen.acceptState(payload.json()));
+		});
+
+		ClientPlayNetworking.registerGlobalReceiver(ProtocolExportS2CPayload.TYPE, (payload, context) -> {
+			context.client().execute(() -> ProtocolExporter.save(payload.json()));
 		});
 
 		HudElementRegistry.addLast(AceAttorney.id("shout_overlay"), ShoutOverlay::render);

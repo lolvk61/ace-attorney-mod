@@ -43,6 +43,8 @@ public class CourtScreen extends Screen {
 	private int logScroll;
 	private boolean protocolMode;
 	private int protScroll;
+	private int selLogNumber = -1; // selected case number in the journal
+	private Button exportLogBtn;
 	private int evOffset;
 	private int stOffset;
 	private int selEv = -1;
@@ -127,10 +129,13 @@ public class CourtScreen extends Screen {
 					protScroll = Math.min(Math.max(0, protocolCount() - LOG_ROWS), protScroll + 1);
 				}).bounds(left + PANEL_W - 22, top + 22 + LOG_ROWS * 12 - 12, 14, 12).build());
 			}
+			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.export"), b ->
+					sendAction("export_protocol", "number", 0))
+					.bounds(left + PANEL_W / 2 - 102, top + PANEL_H - 26, 100, 18).build());
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.back"), b -> {
 				protocolMode = false;
 				rebuild();
-			}).bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 26, 100, 18).build());
+			}).bounds(left + PANEL_W / 2 + 2, top + PANEL_H - 26, 100, 18).build());
 			return;
 		}
 
@@ -143,10 +148,16 @@ public class CourtScreen extends Screen {
 					logScroll = Math.min(Math.max(0, logCount() - LOG_ROWS), logScroll + 1);
 				}).bounds(left + PANEL_W - 22, top + 22 + LOG_ROWS * 12 - 12, 14, 12).build());
 			}
+			exportLogBtn = addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.export"), b -> {
+				if (selLogNumber > 0) {
+					sendAction("export_protocol", "number", selLogNumber);
+				}
+			}).bounds(left + PANEL_W / 2 - 102, top + PANEL_H - 26, 100, 18).build());
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.back"), b -> {
 				logMode = false;
+				selLogNumber = -1;
 				rebuild();
-			}).bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 26, 100, 18).build());
+			}).bounds(left + PANEL_W / 2 + 2, top + PANEL_H - 26, 100, 18).build());
 			return;
 		}
 
@@ -411,6 +422,19 @@ public class CourtScreen extends Screen {
 	public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
 		double mouseX = event.x();
 		double mouseY = event.y();
+		// journal: click a case row to select it for export
+		if (logMode && event.button() == 0
+				&& mouseX >= left + 8 && mouseX < left + PANEL_W - 40
+				&& mouseY >= top + 22 && mouseY < top + 22 + LOG_ROWS * 12) {
+			int row = (int) ((mouseY - (top + 22)) / 12);
+			int count = logCount();
+			int idx = count - 1 - logScroll - row;
+			if (idx >= 0 && idx < count) {
+				int number = state.getAsJsonArray("log").get(idx).getAsJsonObject().get("number").getAsInt();
+				selLogNumber = (selLogNumber == number) ? -1 : number;
+				return true;
+			}
+		}
 		if (isActive() && !addMode && !logMode && !protocolMode && editingIndex < 0 && event.button() == 0) {
 			int listY = top + LIST_TOP;
 			if (mouseY >= listY && mouseY < listY + ROWS * ROW_H) {
@@ -625,6 +649,9 @@ public class CourtScreen extends Screen {
 	private void renderLog(GuiGraphics graphics) {
 		graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.log_title"),
 				left + PANEL_W / 2, top + 6, 0xFFFFD75E);
+		if (exportLogBtn != null) {
+			exportLogBtn.active = selLogNumber > 0;
+		}
 		int count = logCount();
 		if (count == 0) {
 			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.log_empty"),
@@ -638,6 +665,9 @@ public class CourtScreen extends Screen {
 				break;
 			}
 			JsonObject r = log.get(idx).getAsJsonObject();
+			if (r.get("number").getAsInt() == selLogNumber) {
+				graphics.fill(left + 6, top + 22 + row * 12 - 1, left + PANEL_W - 26, top + 22 + row * 12 + 10, 0x50FFFFFF);
+			}
 			String verdict = r.get("verdict").getAsString();
 			String verdictText = switch (verdict) {
 				case "guilty" -> I18n.get("court.aceattorney.verdict.guilty");

@@ -441,12 +441,64 @@ public final class CourtService {
 				case "object" -> object(player, obj.get("statement").getAsInt(),
 						obj.has("evidence") ? obj.get("evidence").getAsInt() : 0);
 				case "say" -> say(player, obj.get("text").getAsString());
+				case "export_protocol" -> exportProtocol(player, obj.has("number") ? obj.get("number").getAsInt() : 0);
 				default -> {
 				}
 			}
 		} catch (Exception e) {
 			// malformed packet from a modified client — ignore
 		}
+	}
+
+	/**
+	 * Send a case protocol to the player for saving as a text file.
+	 * number == 0 — the live session protocol: clerk (or op) only.
+	 * number > 0 — a concluded case from the log: anyone may export.
+	 */
+	public static boolean exportProtocol(ServerPlayer player, int number) {
+		JsonObject export = new JsonObject();
+		if (number <= 0) {
+			CourtSession session = CourtManager.session();
+			if (session == null) {
+				fail(player, "court.aceattorney.no_session");
+				return false;
+			}
+			boolean clerk = session.roles().get(player.getUUID()) == CourtRole.CLERK;
+			if (!clerk && !isJudgeOrOp(player)) {
+				fail(player, "court.aceattorney.export_clerk_only");
+				return false;
+			}
+			export.addProperty("number", session.caseNumber());
+			export.addProperty("name", session.caseName());
+			ServerPlayer judge = player.level().getServer().getPlayerList().getPlayer(session.judge());
+			export.addProperty("judge", judge != null ? judge.getGameProfile().name() : "?");
+			export.addProperty("verdict", "in_progress");
+			export.addProperty("date", java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+			JsonArray protocol = new JsonArray();
+			for (CourtSession.LogEntry entry : session.protocol()) {
+				JsonObject je = new JsonObject();
+				je.addProperty("time", entry.time());
+				je.addProperty("actor", entry.actor());
+				je.addProperty("text", entry.text());
+				protocol.add(je);
+			}
+			export.add("protocol", protocol);
+		} else {
+			CaseLog.CaseRecord record = CaseLog.records().stream()
+					.filter(r -> r.number() == number).findFirst().orElse(null);
+			if (record == null) {
+				fail(player, "court.aceattorney.no_such_case");
+				return false;
+			}
+			export.addProperty("number", record.number());
+			export.addProperty("name", record.name());
+			export.addProperty("judge", record.judge());
+			export.addProperty("verdict", record.verdict());
+			export.addProperty("date", record.date());
+			export.add("protocol", record.protocol());
+		}
+		ServerPlayNetworking.send(player, new com.stratfat.aceattorney.net.ProtocolExportS2CPayload(export.toString()));
+		return true;
 	}
 
 	// ---------- state sync ----------

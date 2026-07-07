@@ -23,6 +23,7 @@ public class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(DialogueS2CPayload.TYPE, DialogueS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(CourtActionC2SPayload.TYPE, CourtActionC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(CourtStateS2CPayload.TYPE, CourtStateS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ProtocolExportS2CPayload.TYPE, ProtocolExportS2CPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(ShoutC2SPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();

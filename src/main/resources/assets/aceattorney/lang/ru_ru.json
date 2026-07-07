@@ -101,5 +101,11 @@
     "block.aceattorney.clerk_bench":  "Стол секретаря",
     "gui.aceattorney.protocol_empty":  "Протокол пока пуст",
     "gui.aceattorney.protocol_title":  "ПРОТОКОЛ ЗАСЕДАНИЯ",
-    "gui.aceattorney.protocol":  "Протокол"
+    "gui.aceattorney.protocol":  "Протокол",
+    "gui.aceattorney.export":  "💾 Экспорт",
+    "gui.aceattorney.in_progress":  "заседание продолжается",
+    "chat.aceattorney.protocol_exported":  "📄 Протокол сохранён: %s (клик — открыть)",
+    "chat.aceattorney.protocol_export_failed":  "Не удалось сохранить протокол — смотри лог игры.",
+    "court.aceattorney.no_such_case":  "Дело с таким номером не найдено в журнале.",
+    "court.aceattorney.export_clerk_only":  "Во время заседания экспортировать протокол может только секретарь."
 }

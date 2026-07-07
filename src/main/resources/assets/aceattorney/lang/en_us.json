@@ -101,5 +101,11 @@
     "block.aceattorney.clerk_bench":  "Clerk\u0027s Bench",
     "gui.aceattorney.protocol_empty":  "The protocol is empty so far",
     "gui.aceattorney.protocol_title":  "SESSION PROTOCOL",
-    "gui.aceattorney.protocol":  "Protocol"
+    "gui.aceattorney.protocol":  "Protocol",
+    "gui.aceattorney.export":  "💾 Export",
+    "gui.aceattorney.in_progress":  "session in progress",
+    "chat.aceattorney.protocol_exported":  "📄 Protocol saved: %s (click to open)",
+    "chat.aceattorney.protocol_export_failed":  "Could not save the protocol — see the game log.",
+    "court.aceattorney.no_such_case":  "No case with that number in the log.",
+    "court.aceattorney.export_clerk_only":  "During a session only the clerk may export the protocol."
 }
