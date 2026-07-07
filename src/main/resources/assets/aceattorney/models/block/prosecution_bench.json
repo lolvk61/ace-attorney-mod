@@ -1,0 +1,8 @@
+{
+	"parent": "minecraft:block/cube_bottom_top",
+	"textures": {
+		"top": "aceattorney:block/prosecution_bench_top",
+		"bottom": "aceattorney:block/prosecution_bench_side",
+		"side": "aceattorney:block/prosecution_bench_side"
+	}
+}

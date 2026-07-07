@@ -21,10 +21,17 @@ public class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(ShoutC2SPayload.TYPE, ShoutC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(ShoutS2CPayload.TYPE, ShoutS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(DialogueS2CPayload.TYPE, DialogueS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(CourtActionC2SPayload.TYPE, CourtActionC2SPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(CourtStateS2CPayload.TYPE, CourtStateS2CPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(ShoutC2SPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
 			context.server().execute(() -> handleShout(player, payload.shout()));
+		});
+
+		ServerPlayNetworking.registerGlobalReceiver(CourtActionC2SPayload.TYPE, (payload, context) -> {
+			ServerPlayer player = context.player();
+			context.server().execute(() -> com.stratfat.aceattorney.court.CourtService.handleAction(player, payload.json()));
 		});
 	}
 

@@ -2,6 +2,7 @@ package com.stratfat.aceattorney.client;
 
 import com.stratfat.aceattorney.AceAttorney;
 import com.stratfat.aceattorney.ShoutType;
+import com.stratfat.aceattorney.net.CourtStateS2CPayload;
 import com.stratfat.aceattorney.net.DialogueS2CPayload;
 import com.stratfat.aceattorney.net.ShoutC2SPayload;
 import com.stratfat.aceattorney.net.ShoutS2CPayload;
@@ -20,6 +21,7 @@ public class AceAttorneyClient implements ClientModInitializer {
 	private static KeyMapping objectionKey;
 	private static KeyMapping holdItKey;
 	private static KeyMapping takeThatKey;
+	private static KeyMapping courtRecordKey;
 
 	@Override
 	public void onInitializeClient() {
@@ -30,6 +32,8 @@ public class AceAttorneyClient implements ClientModInitializer {
 				new KeyMapping("key.aceattorney.hold_it", GLFW.GLFW_KEY_H, category));
 		takeThatKey = KeyBindingHelper.registerKeyBinding(
 				new KeyMapping("key.aceattorney.take_that", GLFW.GLFW_KEY_J, category));
+		courtRecordKey = KeyBindingHelper.registerKeyBinding(
+				new KeyMapping("key.aceattorney.court_record", GLFW.GLFW_KEY_G, category));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (objectionKey.consumeClick()) {
@@ -41,6 +45,12 @@ public class AceAttorneyClient implements ClientModInitializer {
 			while (takeThatKey.consumeClick()) {
 				sendShout(ShoutType.TAKE_THAT);
 			}
+			while (courtRecordKey.consumeClick()) {
+				if (client.player != null && client.screen == null) {
+					client.setScreen(new CourtScreen());
+					CourtScreen.requestState();
+				}
+			}
 		});
 
 		ClientPlayNetworking.registerGlobalReceiver(ShoutS2CPayload.TYPE, (payload, context) -> {
@@ -49,6 +59,10 @@ public class AceAttorneyClient implements ClientModInitializer {
 
 		ClientPlayNetworking.registerGlobalReceiver(DialogueS2CPayload.TYPE, (payload, context) -> {
 			context.client().execute(() -> DialogueOverlay.enqueue(payload));
+		});
+
+		ClientPlayNetworking.registerGlobalReceiver(CourtStateS2CPayload.TYPE, (payload, context) -> {
+			context.client().execute(() -> CourtScreen.acceptState(payload.json()));
 		});
 
 		HudElementRegistry.addLast(AceAttorney.id("shout_overlay"), ShoutOverlay::render);

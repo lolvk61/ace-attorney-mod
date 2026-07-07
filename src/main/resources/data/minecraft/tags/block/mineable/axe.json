@@ -1,0 +1,4 @@
+{
+	"replace": false,
+	"values": ["aceattorney:judge_bench", "aceattorney:witness_stand", "aceattorney:defense_bench", "aceattorney:prosecution_bench"]
+}

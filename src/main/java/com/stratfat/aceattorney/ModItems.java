@@ -35,6 +35,10 @@ public class ModItems {
 					output.accept(ATTORNEY_BADGE);
 					output.accept(MAGATAMA);
 					output.accept(GAVEL);
+					output.accept(ModBlocks.JUDGE_BENCH);
+					output.accept(ModBlocks.WITNESS_STAND);
+					output.accept(ModBlocks.DEFENSE_BENCH);
+					output.accept(ModBlocks.PROSECUTION_BENCH);
 				})
 				.build());
 

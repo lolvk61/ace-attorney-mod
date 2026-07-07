@@ -18,6 +18,7 @@ public class AceAttorney implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ModSounds.init();
+		ModBlocks.init();
 		ModItems.init();
 		ModNetworking.init();
 		CourtCommand.init();
