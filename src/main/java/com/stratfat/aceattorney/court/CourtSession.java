@@ -7,9 +7,14 @@ import java.util.Map;
 import java.util.UUID;
 
 public class CourtSession {
+	/** One witness statement in a testimony. */
+	public record Statement(String speaker, String text) {
+	}
+
 	private final UUID judge;
 	private final Map<UUID, CourtRole> roles = new LinkedHashMap<>();
 	private final List<Evidence> evidence = new ArrayList<>();
+	private final List<Statement> testimony = new ArrayList<>();
 
 	public CourtSession(UUID judge) {
 		this.judge = judge;
@@ -26,6 +31,10 @@ public class CourtSession {
 
 	public List<Evidence> evidence() {
 		return evidence;
+	}
+
+	public List<Statement> testimony() {
+		return testimony;
 	}
 
 	public boolean isJudge(UUID player) {

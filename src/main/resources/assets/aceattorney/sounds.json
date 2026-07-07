@@ -28,5 +28,10 @@
 		"sounds": [
 			{ "name": "minecraft:block.amethyst_block.resonate", "type": "event" }
 		]
+	},
+	"dialogue.blip": {
+		"sounds": [
+			{ "name": "minecraft:block.note_block.hat", "type": "event" }
+		]
 	}
 }

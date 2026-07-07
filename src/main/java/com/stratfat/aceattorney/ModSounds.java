@@ -11,6 +11,7 @@ public class ModSounds {
 	public static SoundEvent SHOUT_TAKE_THAT;
 	public static SoundEvent GAVEL;
 	public static SoundEvent MAGATAMA;
+	public static SoundEvent DIALOGUE_BLIP;
 
 	public static void init() {
 		SHOUT_OBJECTION = register("shout.objection");
@@ -18,6 +19,7 @@ public class ModSounds {
 		SHOUT_TAKE_THAT = register("shout.take_that");
 		GAVEL = register("gavel");
 		MAGATAMA = register("magatama");
+		DIALOGUE_BLIP = register("dialogue.blip");
 	}
 
 	private static SoundEvent register(String name) {
