@@ -44,7 +44,8 @@ public class CourtScreen extends Screen {
 	private int evOffset;
 	private int stOffset;
 	private int selEv = -1;
-	private int selSt = -1;
+	private int selSt = -1; // global statement index (matches server numbering)
+	private String selSpeaker; // null = witness list view
 
 	private Button presentBtn;
 	private Button pressBtn;
@@ -178,13 +179,21 @@ public class CourtScreen extends Screen {
 				evOffset = Math.min(Math.max(0, evidenceCount() - ROWS), evOffset + 1);
 			}).bounds(left + 178, top + LIST_TOP + ROWS * ROW_H - 12, 14, 12).build());
 		}
-		if (testimonyCount() > ROWS) {
+		if (rightListSize() > ROWS) {
 			addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
 				stOffset = Math.max(0, stOffset - 1);
 			}).bounds(left + PANEL_W - 22, top + 28, 14, 12).build());
 			addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
-				stOffset = Math.min(Math.max(0, testimonyCount() - ROWS), stOffset + 1);
+				stOffset = Math.min(Math.max(0, rightListSize() - ROWS), stOffset + 1);
 			}).bounds(left + PANEL_W - 22, top + LIST_TOP + ROWS * ROW_H - 12, 14, 12).build());
+		}
+		if (selSpeaker != null) {
+			addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
+				selSpeaker = null;
+				selSt = -1;
+				stOffset = 0;
+				rebuild();
+			}).bounds(left + PANEL_W - 40, top + LIST_TOP - 14, 14, 12).build());
 		}
 
 		// action row
@@ -215,16 +224,20 @@ public class CourtScreen extends Screen {
 			rebuild();
 		}).bounds(left + 296, top + 158, 96, 18).build());
 
-		// statement row
-		statementBox = new EditBox(font, left + 8, top + 180, 268, 18, Component.translatable("gui.aceattorney.statement_hint"));
-		statementBox.setMaxLength(200);
-		addRenderableWidget(statementBox);
-		addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.add_statement"), b -> {
-			if (!statementBox.getValue().isBlank()) {
-				sendAction("add_statement", "text", statementBox.getValue().trim());
-				statementBox.setValue("");
-			}
-		}).bounds(left + 280, top + 180, 60, 18).build());
+		// statement row — only the witness and the defendant testify
+		String myRole = state.get("yourRole").getAsString();
+		boolean canTestify = myRole.equals("witness") || myRole.equals("defendant");
+		if (canTestify) {
+			statementBox = new EditBox(font, left + 8, top + 180, 268, 18, Component.translatable("gui.aceattorney.statement_hint"));
+			statementBox.setMaxLength(200);
+			addRenderableWidget(statementBox);
+			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.add_statement"), b -> {
+				if (!statementBox.getValue().isBlank()) {
+					sendAction("add_statement", "text", statementBox.getValue().trim());
+					statementBox.setValue("");
+				}
+			}).bounds(left + 280, top + 180, 60, 18).build());
+		}
 		addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.play_testimony"),
 				b -> sendAction("play_testimony")).bounds(left + 344, top + 180, 48, 18).build());
 
@@ -272,6 +285,41 @@ public class CourtScreen extends Screen {
 		return isActive() ? state.getAsJsonArray("testimony").size() : 0;
 	}
 
+	/** Unique speakers who gave statements, in order of first appearance. */
+	private static List<String> speakers() {
+		List<String> list = new ArrayList<>();
+		if (!isActive()) {
+			return list;
+		}
+		JsonArray testimony = state.getAsJsonArray("testimony");
+		for (var el : testimony) {
+			String s = el.getAsJsonObject().get("speaker").getAsString();
+			if (!list.contains(s)) {
+				list.add(s);
+			}
+		}
+		return list;
+	}
+
+	/** Global statement indices belonging to one speaker. */
+	private static List<Integer> statementsOf(String speaker) {
+		List<Integer> indices = new ArrayList<>();
+		if (!isActive()) {
+			return indices;
+		}
+		JsonArray testimony = state.getAsJsonArray("testimony");
+		for (int i = 0; i < testimony.size(); i++) {
+			if (testimony.get(i).getAsJsonObject().get("speaker").getAsString().equals(speaker)) {
+				indices.add(i);
+			}
+		}
+		return indices;
+	}
+
+	private int rightListSize() {
+		return selSpeaker == null ? speakers().size() : statementsOf(selSpeaker).size();
+	}
+
 	// ---------- input ----------
 
 	@Override
@@ -290,9 +338,22 @@ public class CourtScreen extends Screen {
 					}
 				} else if (mouseX >= left + 204 && mouseX < left + PANEL_W - 26) {
 					int idx = stOffset + row;
-					if (idx < testimonyCount()) {
-						selSt = (selSt == idx) ? -1 : idx;
-						return true;
+					if (selSpeaker == null) {
+						List<String> speakers = speakers();
+						if (idx < speakers.size()) {
+							selSpeaker = speakers.get(idx);
+							selSt = -1;
+							stOffset = 0;
+							rebuild();
+							return true;
+						}
+					} else {
+						List<Integer> indices = statementsOf(selSpeaker);
+						if (idx < indices.size()) {
+							int global = indices.get(idx);
+							selSt = (selSt == global) ? -1 : global;
+							return true;
+						}
 					}
 				}
 			}
@@ -367,7 +428,10 @@ public class CourtScreen extends Screen {
 		}
 
 		graphics.drawString(font, Component.translatable("gui.aceattorney.evidence"), left + 8, top + LIST_TOP - 10, 0xFFFFE080);
-		graphics.drawString(font, Component.translatable("gui.aceattorney.testimony"), left + 204, top + LIST_TOP - 10, 0xFF7CE8A8);
+		Component testimonyHeader = selSpeaker == null
+				? Component.translatable("gui.aceattorney.testimony")
+				: Component.literal(selSpeaker + ":");
+		graphics.drawString(font, testimonyHeader, left + 204, top + LIST_TOP - 10, 0xFF7CE8A8);
 
 		JsonArray evidence = state.getAsJsonArray("evidence");
 		for (int row = 0; row < ROWS; row++) {
@@ -384,17 +448,35 @@ public class CourtScreen extends Screen {
 		}
 
 		JsonArray testimony = state.getAsJsonArray("testimony");
-		for (int row = 0; row < ROWS; row++) {
-			int idx = stOffset + row;
-			if (idx >= testimony.size()) {
-				break;
+		if (selSpeaker == null) {
+			// level 1: who has testified
+			List<String> speakers = speakers();
+			for (int row = 0; row < ROWS; row++) {
+				int idx = stOffset + row;
+				if (idx >= speakers.size()) {
+					break;
+				}
+				int y = top + LIST_TOP + row * ROW_H;
+				String name = speakers.get(idx);
+				String line = "▸ " + name + " (" + statementsOf(name).size() + ")";
+				graphics.drawString(font, font.plainSubstrByWidth(line, 158), left + 204, y, 0xFF7CE8A8);
 			}
-			int y = top + LIST_TOP + row * ROW_H;
-			if (idx == selSt) {
-				graphics.fill(left + 202, y - 1, left + PANEL_W - 26, y + ROW_H - 1, 0x50FFFFFF);
+		} else {
+			// level 2: statements of the selected speaker (global numbering)
+			List<Integer> indices = statementsOf(selSpeaker);
+			for (int row = 0; row < ROWS; row++) {
+				int idx = stOffset + row;
+				if (idx >= indices.size()) {
+					break;
+				}
+				int global = indices.get(idx);
+				int y = top + LIST_TOP + row * ROW_H;
+				if (global == selSt) {
+					graphics.fill(left + 202, y - 1, left + PANEL_W - 26, y + ROW_H - 1, 0x50FFFFFF);
+				}
+				String text = (global + 1) + ". " + testimony.get(global).getAsJsonObject().get("text").getAsString();
+				graphics.drawString(font, font.plainSubstrByWidth(text, 158), left + 204, y, 0xFF7CE8A8);
 			}
-			String text = (idx + 1) + ". " + testimony.get(idx).getAsJsonObject().get("text").getAsString();
-			graphics.drawString(font, font.plainSubstrByWidth(text, 158), left + 204, y, 0xFF7CE8A8);
 		}
 
 		// detail panel: selected evidence or statement

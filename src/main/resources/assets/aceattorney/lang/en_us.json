@@ -89,5 +89,6 @@
     "gui.aceattorney.title_case":  "CASE No. %s: %s",
     "court.aceattorney.verdict.dismissed":  "DISMISSED",
     "gui.aceattorney.say_hint":  "Say something...",
-    "court.aceattorney.case":  "⚖ Now hearing case No. %s: %s"
+    "court.aceattorney.case":  "⚖ Now hearing case No. %s: %s",
+    "court.aceattorney.testimony_witness_only":  "Only the witness and the defendant may testify."
 }

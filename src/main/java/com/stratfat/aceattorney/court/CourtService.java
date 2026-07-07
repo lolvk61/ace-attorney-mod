@@ -217,6 +217,11 @@ public final class CourtService {
 			return false;
 		}
 		CourtSession session = CourtManager.session();
+		CourtRole role = session.roles().get(player.getUUID());
+		if (role != CourtRole.WITNESS && role != CourtRole.DEFENDANT) {
+			fail(player, "court.aceattorney.testimony_witness_only");
+			return false;
+		}
 		session.testimony().add(new CourtSession.Statement(player.getGameProfile().name(), text));
 		int number = session.testimony().size();
 		player.sendSystemMessage(Component.translatable("court.aceattorney.statement_added", number));

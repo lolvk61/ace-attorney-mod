@@ -89,5 +89,6 @@
     "gui.aceattorney.title_case":  "ДЕЛО №%s: «%s»",
     "court.aceattorney.verdict.dismissed":  "ПРЕКРАЩЕНО",
     "gui.aceattorney.say_hint":  "Сказать реплику...",
-    "court.aceattorney.case":  "⚖ Слушается дело №%s: %s"
+    "court.aceattorney.case":  "⚖ Слушается дело №%s: %s",
+    "court.aceattorney.testimony_witness_only":  "Давать показания могут только свидетель и обвиняемый."
 }
