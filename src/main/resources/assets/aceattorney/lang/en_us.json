@@ -1,0 +1,48 @@
+{
+	"itemGroup.aceattorney.main": "Ace Attorney",
+
+	"item.aceattorney.attorney_badge": "Attorney's Badge",
+	"item.aceattorney.magatama": "Magatama",
+	"item.aceattorney.gavel": "Judge's Gavel",
+
+	"key.categories.aceattorney.main": "Ace Attorney",
+	"key.aceattorney.objection": "Objection!",
+	"key.aceattorney.hold_it": "Hold it!",
+	"key.aceattorney.take_that": "Take that!",
+
+	"role.aceattorney.judge": "Judge",
+	"role.aceattorney.defense": "Defense Attorney",
+	"role.aceattorney.prosecution": "Prosecutor",
+	"role.aceattorney.witness": "Witness",
+	"role.aceattorney.defendant": "Defendant",
+
+	"chat.aceattorney.badge_shown": "%s shows their attorney's badge.",
+	"chat.aceattorney.magatama": "The magatama grows cold... Someone is hiding the truth.",
+	"chat.aceattorney.order": "⚖ %s: Order in the court!",
+
+	"court.aceattorney.session_start": "COURT IS NOW IN SESSION!",
+	"court.aceattorney.session_start.sub": "The Honorable %s presiding",
+	"court.aceattorney.session_end": "⚖ Court is adjourned.",
+	"court.aceattorney.already_active": "A trial is already in progress. End it with /court end",
+	"court.aceattorney.no_session": "No trial is in progress. Start one with /court start",
+	"court.aceattorney.judge_only": "Only the judge can do that.",
+	"court.aceattorney.not_participant": "You are not part of this trial. Ask the judge for a role: /court role",
+	"court.aceattorney.hint_roles": "Judge, assign roles: /court role <player> <judge|defense|prosecution|witness|defendant>",
+	"court.aceattorney.role_assigned": "⚖ %s is now %s",
+	"court.aceattorney.roles_header": "Trial participants:",
+	"court.aceattorney.evidence_added": "📁 %s submits evidence: %s",
+	"court.aceattorney.evidence_empty": "The court record is empty. Add evidence: /court evidence add <name> <description>",
+	"court.aceattorney.evidence_header": "Court Record (hover for details):",
+	"court.aceattorney.evidence_removed": "Evidence \"%s\" was removed from the record.",
+	"court.aceattorney.no_such_evidence": "No evidence with that number. See /court evidence list",
+	"court.aceattorney.evidence_presented": "⚡ %s presents evidence: %s",
+	"court.aceattorney.verdict.guilty": "GUILTY",
+	"court.aceattorney.verdict.not_guilty": "NOT GUILTY",
+	"court.aceattorney.verdict.sub": "The court has reached a verdict",
+
+	"subtitles.aceattorney.shout.objection": "\"Objection!\"",
+	"subtitles.aceattorney.shout.hold_it": "\"Hold it!\"",
+	"subtitles.aceattorney.shout.take_that": "\"Take that!\"",
+	"subtitles.aceattorney.gavel": "Gavel bangs",
+	"subtitles.aceattorney.magatama": "Magatama resonates"
+}

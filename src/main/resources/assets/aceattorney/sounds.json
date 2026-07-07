@@ -1,0 +1,32 @@
+{
+	"shout.objection": {
+		"subtitle": "subtitles.aceattorney.shout.objection",
+		"sounds": [
+			"aceattorney:objection"
+		]
+	},
+	"shout.hold_it": {
+		"subtitle": "subtitles.aceattorney.shout.hold_it",
+		"sounds": [
+			"aceattorney:hold_it"
+		]
+	},
+	"shout.take_that": {
+		"subtitle": "subtitles.aceattorney.shout.take_that",
+		"sounds": [
+			"aceattorney:take_that"
+		]
+	},
+	"gavel": {
+		"subtitle": "subtitles.aceattorney.gavel",
+		"sounds": [
+			"aceattorney:gavel"
+		]
+	},
+	"magatama": {
+		"subtitle": "subtitles.aceattorney.magatama",
+		"sounds": [
+			{ "name": "minecraft:block.amethyst_block.resonate", "type": "event" }
+		]
+	}
+}

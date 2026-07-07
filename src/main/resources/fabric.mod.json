@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "aceattorney",
+	"version": "${version}",
+	"name": "Ace Attorney",
+	"description": "Objection! Судебные заседания, улики и выкрики в стиле Ace Attorney.",
+	"authors": [
+		"Stratfat"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/aceattorney/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.stratfat.aceattorney.AceAttorney"
+		],
+		"client": [
+			"com.stratfat.aceattorney.client.AceAttorneyClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

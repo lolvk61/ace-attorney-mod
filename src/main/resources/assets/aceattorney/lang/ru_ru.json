@@ -1,0 +1,48 @@
+{
+	"itemGroup.aceattorney.main": "Ace Attorney",
+
+	"item.aceattorney.attorney_badge": "Значок адвоката",
+	"item.aceattorney.magatama": "Магатама",
+	"item.aceattorney.gavel": "Судейский молоток",
+
+	"key.categories.aceattorney.main": "Ace Attorney",
+	"key.aceattorney.objection": "Протестую! (Objection!)",
+	"key.aceattorney.hold_it": "Минуточку! (Hold it!)",
+	"key.aceattorney.take_that": "Вот! (Take that!)",
+
+	"role.aceattorney.judge": "Судья",
+	"role.aceattorney.defense": "Адвокат защиты",
+	"role.aceattorney.prosecution": "Прокурор",
+	"role.aceattorney.witness": "Свидетель",
+	"role.aceattorney.defendant": "Подсудимый",
+
+	"chat.aceattorney.badge_shown": "%s демонстрирует значок адвоката.",
+	"chat.aceattorney.magatama": "Магатама холодеет... Кто-то скрывает правду.",
+	"chat.aceattorney.order": "⚖ %s: Порядок в зале суда!",
+
+	"court.aceattorney.session_start": "СУД ИДЁТ!",
+	"court.aceattorney.session_start.sub": "Председательствует %s",
+	"court.aceattorney.session_end": "⚖ Заседание суда окончено.",
+	"court.aceattorney.already_active": "Заседание уже идёт. Завершите его: /court end",
+	"court.aceattorney.no_session": "Сейчас нет заседания. Начните его: /court start",
+	"court.aceattorney.judge_only": "Это может сделать только судья.",
+	"court.aceattorney.not_participant": "Вы не участник процесса. Судья должен выдать вам роль: /court role",
+	"court.aceattorney.hint_roles": "Судья, раздайте роли: /court role <игрок> <judge|defense|prosecution|witness|defendant>",
+	"court.aceattorney.role_assigned": "⚖ %s теперь — %s",
+	"court.aceattorney.roles_header": "Участники процесса:",
+	"court.aceattorney.evidence_added": "📁 %s приобщает к делу улику: %s",
+	"court.aceattorney.evidence_empty": "В деле пока нет улик. Добавьте: /court evidence add <название> <описание>",
+	"court.aceattorney.evidence_header": "Материалы дела (наведите курсор для описания):",
+	"court.aceattorney.evidence_removed": "Улика «%s» изъята из дела.",
+	"court.aceattorney.no_such_evidence": "Улики с таким номером нет. Список: /court evidence list",
+	"court.aceattorney.evidence_presented": "⚡ %s предъявляет улику: %s",
+	"court.aceattorney.verdict.guilty": "ВИНОВЕН",
+	"court.aceattorney.verdict.not_guilty": "НЕВИНОВЕН",
+	"court.aceattorney.verdict.sub": "Суд вынес вердикт",
+
+	"subtitles.aceattorney.shout.objection": "«Протестую!»",
+	"subtitles.aceattorney.shout.hold_it": "«Минуточку!»",
+	"subtitles.aceattorney.shout.take_that": "«Вот!»",
+	"subtitles.aceattorney.gavel": "Стук молотка",
+	"subtitles.aceattorney.magatama": "Магатама резонирует"
+}
