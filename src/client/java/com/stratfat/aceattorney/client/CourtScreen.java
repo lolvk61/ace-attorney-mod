@@ -292,7 +292,7 @@ public class CourtScreen extends Screen {
 
 		if (!isActive()) {
 			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.no_session"),
-					left + PANEL_W / 2, top + PANEL_H / 2 - 30, 0xFFAAAAAA);
+					left + PANEL_W / 2, top + PANEL_H / 2 - 52, 0xFFAAAAAA);
 			return;
 		}
 
