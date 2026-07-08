@@ -9,6 +9,8 @@ cross-examination, a court clerk keeping the record — and of course full-scree
 
 <img src="src/main/resources/assets/aceattorney/textures/gui/shout_objection.png" width="360" alt="OBJECTION!">
 
+![build](https://github.com/lolvk61/ace-attorney-mod/actions/workflows/build.yml/badge.svg)
+
 Fabric • Minecraft 1.21.11 • Java 21 • [Download](../../releases/latest)
 
 [English](#english) | [Русский](#русский)
