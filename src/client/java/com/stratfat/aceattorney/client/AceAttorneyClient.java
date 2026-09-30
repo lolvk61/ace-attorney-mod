@@ -2,6 +2,8 @@ package com.stratfat.aceattorney.client;
 
 import com.stratfat.aceattorney.AceAttorney;
 import com.stratfat.aceattorney.ShoutType;
+import com.stratfat.aceattorney.client.relay.RelayChannel;
+import com.stratfat.aceattorney.client.relay.RelayCourt;
 import com.stratfat.aceattorney.net.CourtStateS2CPayload;
 import com.stratfat.aceattorney.net.DialogueS2CPayload;
 import com.stratfat.aceattorney.net.ProtocolExportS2CPayload;
@@ -72,11 +74,15 @@ public class AceAttorneyClient implements ClientModInitializer {
 
 		HudElementRegistry.addLast(AceAttorney.id("shout_overlay"), ShoutOverlay::render);
 		HudElementRegistry.addLast(AceAttorney.id("dialogue_overlay"), DialogueOverlay::render);
+
+		RelayChannel.init();
 	}
 
 	private static void sendShout(ShoutType type) {
 		if (ClientPlayNetworking.canSend(ShoutC2SPayload.TYPE)) {
 			ClientPlayNetworking.send(new ShoutC2SPayload(type));
+		} else if (RelayChannel.isActive()) {
+			RelayCourt.sendShout(type);
 		}
 	}
 }

@@ -7,6 +7,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import com.stratfat.aceattorney.client.relay.RelayChannel;
+import com.stratfat.aceattorney.client.relay.RelayCourt;
+import com.stratfat.aceattorney.court.CourtRole;
 import com.stratfat.aceattorney.net.CourtActionC2SPayload;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -24,7 +27,8 @@ import net.minecraft.util.FormattedCharSequence;
 /**
  * Court Record GUI (open with the G key). Shows evidence and testimony,
  * with buttons for present/press/object, adding evidence and statements,
- * and judge controls. Actions go to the server as CourtActionC2SPayload.
+ * and judge controls. Actions go to the server as CourtActionC2SPayload,
+ * or to RelayCourt when the server does not have the mod.
  */
 public class CourtScreen extends Screen {
 	private static final int PANEL_W = 400;
@@ -43,6 +47,8 @@ public class CourtScreen extends Screen {
 	private int logScroll;
 	private boolean protocolMode;
 	private int protScroll;
+	private boolean roleMode;
+	private int headerLeftEdge; // x offset where the top-left buttons end
 	private int selLogNumber = -1; // selected case number in the journal
 	private Button exportLogBtn;
 	private int evOffset;
@@ -78,6 +84,10 @@ public class CourtScreen extends Screen {
 		}
 	}
 
+	public static void resetState() {
+		state = null;
+	}
+
 	public static void requestState() {
 		send("{\"action\":\"request_state\"}");
 	}
@@ -85,6 +95,11 @@ public class CourtScreen extends Screen {
 	private static void send(String json) {
 		if (ClientPlayNetworking.canSend(CourtActionC2SPayload.TYPE)) {
 			ClientPlayNetworking.send(new CourtActionC2SPayload(json));
+		} else if (RelayChannel.isActive()) {
+			RelayCourt.handleAction(json);
+		} else if (RelayChannel.isRemoteWithoutMod() && Minecraft.getInstance().player != null) {
+			Minecraft.getInstance().player.displayClientMessage(
+					Component.translatable("chat.aceattorney.no_backend").withStyle(net.minecraft.ChatFormatting.RED), false);
 		}
 	}
 
@@ -161,19 +176,53 @@ public class CourtScreen extends Screen {
 			return;
 		}
 
+		if (roleMode && !isActive()) {
+			roleMode = false;
+		}
+		if (roleMode) {
+			// client-only mode has no courtroom blocks, so seats are taken here
+			CourtRole[] roles = CourtRole.values();
+			for (int i = 0; i < roles.length; i++) {
+				CourtRole role = roles[i];
+				int col = i % 2;
+				int row = i / 2;
+				addRenderableWidget(Button.builder(role.displayName(), b -> {
+					sendAction("claim_role", "role", role.id());
+					roleMode = false;
+					rebuild();
+				}).bounds(left + PANEL_W / 2 - 152 + col * 154, top + 50 + row * 26, 150, 20).build());
+			}
+			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.back"), b -> {
+				roleMode = false;
+				rebuild();
+			}).bounds(left + PANEL_W / 2 - 50, top + PANEL_H - 26, 100, 18).build());
+			return;
+		}
+
+		headerLeftEdge = 68;
 		if (!addMode) {
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.log"), b -> {
 				logMode = true;
 				logScroll = 0;
 				rebuild();
 			}).bounds(left + PANEL_W - 68, top + 4, 60, 14).build());
+			int x = 8;
+			if (RelayChannel.isActive() && isActive()) {
+				addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.role"), b -> {
+					roleMode = true;
+					rebuild();
+				}).bounds(left + x, top + 4, 60, 14).build());
+				x += 64;
+			}
 			if (isClerk()) {
 				addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.protocol"), b -> {
 					protocolMode = true;
 					protScroll = Math.max(0, protocolCount() - LOG_ROWS);
 					rebuild();
-				}).bounds(left + 8, top + 4, 60, 14).build());
+				}).bounds(left + x, top + 4, 60, 14).build());
+				x += 64;
 			}
+			headerLeftEdge = Math.max(headerLeftEdge, x);
 		}
 
 		if (!isActive()) {
@@ -435,7 +484,7 @@ public class CourtScreen extends Screen {
 				return true;
 			}
 		}
-		if (isActive() && !addMode && !logMode && !protocolMode && editingIndex < 0 && event.button() == 0) {
+		if (isActive() && !addMode && !logMode && !protocolMode && !roleMode && editingIndex < 0 && event.button() == 0) {
 			int listY = top + LIST_TOP;
 			if (mouseY >= listY && mouseY < listY + ROWS * ROW_H) {
 				int row = (int) ((mouseY - listY) / ROW_H);
@@ -511,6 +560,12 @@ public class CourtScreen extends Screen {
 			return;
 		}
 
+		if (roleMode) {
+			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.role_title"),
+					left + PANEL_W / 2, top + 6, 0xFFFFD75E);
+			return;
+		}
+
 		String caseName = isActive() && state.has("case") ? state.get("case").getAsString() : "";
 		int caseNumber = isActive() && state.has("caseNumber") ? state.get("caseNumber").getAsInt() : 0;
 		Component header;
@@ -521,7 +576,12 @@ public class CourtScreen extends Screen {
 		} else {
 			header = Component.translatable("gui.aceattorney.title_case", caseNumber, caseName);
 		}
-		graphics.drawCenteredString(font, header, left + PANEL_W / 2, top + 6, 0xFFFFD75E);
+		String headerText = header.getString();
+		int maxHeaderWidth = PANEL_W - 2 * headerLeftEdge - 8;
+		if (font.width(headerText) > maxHeaderWidth) {
+			headerText = font.plainSubstrByWidth(headerText, maxHeaderWidth - font.width("…")) + "…";
+		}
+		graphics.drawCenteredString(font, headerText, left + PANEL_W / 2, top + 6, 0xFFFFD75E);
 
 		if (!isActive()) {
 			graphics.drawCenteredString(font, Component.translatable("gui.aceattorney.no_session"),

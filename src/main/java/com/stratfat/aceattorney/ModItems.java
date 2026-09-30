@@ -22,6 +22,13 @@ public class ModItems {
 	public static Item MAGATAMA;
 	public static Item GAVEL;
 
+	/**
+	 * Set by the client while connected to a server without the mod: the
+	 * server does not know these items, so an empty tab (hidden by vanilla)
+	 * keeps creative players from grabbing one and getting disconnected.
+	 */
+	public static volatile boolean hideContent;
+
 	public static void init() {
 		ATTORNEY_BADGE = register("attorney_badge", new Item.Properties().stacksTo(1));
 		MAGATAMA = register("magatama", new Item.Properties().stacksTo(1));
@@ -32,6 +39,9 @@ public class ModItems {
 				.title(Component.translatable("itemGroup.aceattorney.main"))
 				.icon(() -> new ItemStack(ATTORNEY_BADGE))
 				.displayItems((params, output) -> {
+					if (hideContent) {
+						return;
+					}
 					output.accept(ATTORNEY_BADGE);
 					output.accept(MAGATAMA);
 					output.accept(GAVEL);

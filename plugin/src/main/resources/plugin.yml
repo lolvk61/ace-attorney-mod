@@ -1,0 +1,7 @@
+name: AceAttorneyRelay
+version: '${version}'
+main: com.stratfat.aceattorney.relay.AceAttorneyRelayPlugin
+api-version: '1.21'
+description: Relays Ace Attorney mod events between players who have the client mod, without using chat.
+authors: [lolvk61]
+website: https://github.com/lolvk61/ace-attorney-mod

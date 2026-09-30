@@ -42,13 +42,27 @@ Fabric • Minecraft 1.21.11 • Java 21 • [Download](../../releases/latest)
 1. Install the [Fabric Loader](https://fabricmc.net/use/) for Minecraft **1.21.11**.
 2. Drop [Fabric API](https://modrinth.com/mod/fabric-api) and the
    [mod jar](../../releases/latest) into your `mods` folder.
-3. The mod is needed on the server **and** on every client.
+3. Pick how the server takes part — there are two ways:
+
+| Server | What to install | Courtroom blocks & items |
+|--------|-----------------|--------------------------|
+| **Fabric** | the mod on the server and on every client | yes |
+| **Paper / Spigot / Purpur** | the `AceAttorneyRelay` plugin on the server, the mod on the clients that want to play | no — roles are picked in the GUI |
+
+**Client-only mode (Paper).** Put `AceAttorneyRelay-<version>.jar` (from the
+[releases](../../releases/latest)) into the server's `plugins` folder. Players with the mod can then
+hold trials together: the plugin forwards court events only to clients that have the mod, so nothing
+is written to chat and players without the mod notice nothing. The mod does not add any blocks or
+items in this mode (they would not exist on the server), so seats are taken with the **Role** button in
+the Court Record GUI (`G`). The case journal is stored per server in `config/aceattorney/relay_cases`
+on each client. A player who joins mid-session receives the current state from the judge (or another
+participant); the protocol then starts from the moment of joining.
 
 ### Building
 ```
-./gradlew build
+./gradlew build                # the mod  -> build/libs/
+./gradlew -p plugin build      # the Paper plugin -> plugin/build/libs/
 ```
-The jar appears in `build/libs/`.
 
 ---
 
@@ -111,15 +125,28 @@ Shift+ПКМ — обычное взаимодействие (можно стр�
 `present <№>`, `testimony add|edit|list|play|clear`, `press <№>`, `object <№> [улика]`,
 `verdict guilty|notguilty`, `log`, `protocol`, а также `/aa say <текст>`.
 
+### Мод только на клиенте (сервер на Paper)
+Если на сервере нет мода, положи `AceAttorneyRelay-<версия>.jar` из
+[релиза](../../releases/latest) в папку `plugins` сервера Paper / Spigot / Purpur. Игроки с модом
+смогут проводить суды вместе: плагин пересылает события заседания только тем клиентам, у которых
+установлен мод, — в чат ничего не пишется, а игроки без мода ничего не замечают.
+
+В этом режиме мод не добавляет блоки и предметы (на сервере их нет), поэтому места занимаются кнопкой
+**Роль** в GUI (`G`). Журнал дел хранится отдельно для каждого сервера у каждого игрока
+(`config/aceattorney/relay_cases`). Кто зашёл посреди заседания, получает текущее состояние от судьи
+(или другого участника); его протокол начинается с момента входа. Если на сервере нет ни плагина, ни
+мода, GUI сообщит, что суд недоступен.
+
 ### Свои звуки
 Выкрики и молоток озвучены файлами из `src/main/resources/assets/aceattorney/sounds/` —
 замени их своими `.ogg` и пересобери мод. Оригинальные ассеты Capcom вкладывать нельзя.
 
 ### Сборка
 ```
-./gradlew build
+./gradlew build                # мод    -> build/libs/
+./gradlew -p plugin build      # плагин -> plugin/build/libs/
 ```
-Готовый jar — в `build/libs/`. Нужен Java 21.
+Нужен Java 21.
 
 ---
 
