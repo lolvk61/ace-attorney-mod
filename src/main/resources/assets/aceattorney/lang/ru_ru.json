@@ -113,5 +113,16 @@
   "court.aceattorney.hint_roles_relay": "Выберите роль: Судебное дело (клавиша G) → «Роль»",
   "gui.aceattorney.role": "Роль",
   "chat.aceattorney.relay_syncing": "Идёт синхронизация с текущим заседанием — попробуйте через пару секунд.",
-  "chat.aceattorney.no_backend": "Этот сервер не поддерживает суд: нужен плагин AceAttorneyRelay (для Paper) или мод на сервере."
+  "chat.aceattorney.no_backend": "Этот сервер не поддерживает суд: нужен плагин AceAttorneyRelay (для Paper) или мод на сервере.",
+  "court.aceattorney.list_header": "Идущие заседания (дело • судья • участников):",
+  "court.aceattorney.target_elsewhere": "Этот игрок участвует в другом заседании.",
+  "court.aceattorney.list_distance": "%s бл. от вас",
+  "court.aceattorney.left_you": "Вы покинули заседание №%s.",
+  "court.aceattorney.session_empty": "Все участники ушли — заседание №%s закрыто.",
+  "court.aceattorney.range_conflict": "Поблизости уже идёт заседание №%s (в %s блоках). Заседания должны проходить не ближе %s блоков друг от друга.",
+  "court.aceattorney.left": "%s покидает заседание.",
+  "court.aceattorney.list_empty": "Сейчас нет ни одного заседания.",
+  "court.aceattorney.list_other_dimension": "в другом измерении",
+  "court.aceattorney.abandoned_closed": "Заброшенное заседание №%s (никого из участников нет в сети) закрыто.",
+  "gui.aceattorney.leave": "Покинуть заседание"
 }

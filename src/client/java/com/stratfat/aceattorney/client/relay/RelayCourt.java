@@ -28,6 +28,7 @@ import com.stratfat.aceattorney.client.DialogueOverlay;
 import com.stratfat.aceattorney.client.ProtocolExporter;
 import com.stratfat.aceattorney.client.ShoutOverlay;
 import com.stratfat.aceattorney.court.CourtRole;
+import com.stratfat.aceattorney.court.Site;
 import com.stratfat.aceattorney.net.DialogueS2CPayload;
 
 import net.minecraft.ChatFormatting;
@@ -44,12 +45,15 @@ import net.minecraft.world.entity.player.Player;
  * chat lines, titles, dialogues and protocol, but driven by relay events.
  * Every modded client validates each event against the sender's role, so
  * all of them reach the same state without a server-side authority.
+ *
+ * Several sessions can run at once, at least {@link Site#RADIUS} blocks
+ * apart (the start event carries its position, so every client judges the
+ * distance the same way). A session's chat, titles and dialogues are shown
+ * only to its audience: its participants, and players within that radius.
  */
 public final class RelayCourt {
 	private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
-	/** Validation result for malformed events: rejected without a message. */
-	private static final String MALFORMED = "";
 	private static final double SHOUT_RADIUS = 64.0;
 	private static final double SAY_RADIUS = 32.0;
 	private static final long SHOUT_COOLDOWN_MS = 2000;
@@ -58,7 +62,12 @@ public final class RelayCourt {
 	/** After asking for a sync, give the answer time to arrive before allowing a new session. */
 	private static final long SYNC_WAIT_MS = 4000;
 	private static final Set<String> NEEDS_SESSION = Set.of(
-			"end", "verdict", "role", "ev", "present", "st", "edit", "play", "press", "object");
+			"end", "verdict", "role", "ev", "present", "st", "edit", "play", "press", "object", "leave");
+
+	/** Why an action is refused: a lang key with arguments; {@link #MALFORMED} is dropped silently. */
+	private record Failure(String key, Object... args) {
+		static final Failure MALFORMED = new Failure("");
+	}
 
 	private record Evidence(String name, String desc, String submitter) {
 	}
@@ -73,15 +82,17 @@ public final class RelayCourt {
 		String judge;
 		final int number;
 		final String caseName;
+		final Site site;
 		final Map<String, CourtRole> roles = new LinkedHashMap<>();
 		final List<Evidence> evidence = new ArrayList<>();
 		final List<Statement> testimony = new ArrayList<>();
 		final List<LogEntry> protocol = new ArrayList<>();
 
-		Session(String judge, int number, String caseName) {
+		Session(String judge, int number, String caseName, Site site) {
 			this.judge = judge;
 			this.number = number;
 			this.caseName = caseName;
+			this.site = site;
 		}
 
 		boolean isJudge(String name) {
@@ -93,17 +104,17 @@ public final class RelayCourt {
 		}
 	}
 
-	private static Session session;
-	private static Session pending; // snapshot being received for a late joiner
-	private static String pendingFrom;
+	/** Running sessions by case number. */
+	private static final Map<Integer, Session> SESSIONS = new LinkedHashMap<>();
+	/** Snapshots being received for a late joiner, by the player sending them. */
+	private static final Map<String, Session> PENDING = new HashMap<>();
+	private static final Map<Integer, Long> LAST_SNAPSHOT = new HashMap<>();
+	private static final Map<String, Long> LAST_SHOUT = new HashMap<>();
 	private static JsonArray caseLog = new JsonArray();
 	private static Path caseLogFile;
-	private static int nextNumber = 1;
 	private static boolean syncAsked;
 	private static long lastSyncRequest;
-	private static long lastSnapshot;
 	private static long lastOwnShout;
-	private static final Map<String, Long> LAST_SHOUT = new HashMap<>();
 
 	private RelayCourt() {
 	}
@@ -117,13 +128,12 @@ public final class RelayCourt {
 	}
 
 	public static void reset() {
-		session = null;
-		pending = null;
-		pendingFrom = null;
+		SESSIONS.clear();
+		PENDING.clear();
+		LAST_SNAPSHOT.clear();
+		LAST_SHOUT.clear();
 		syncAsked = false;
 		lastSyncRequest = 0;
-		lastSnapshot = 0;
-		LAST_SHOUT.clear();
 	}
 
 	// ---------- local player actions ----------
@@ -154,14 +164,21 @@ public final class RelayCourt {
 		}
 		switch (str(obj, "action")) {
 			case "request_state" -> {
-				if (session == null && !syncAsked) {
+				if (!syncAsked) {
 					syncAsked = true;
 					requestSync();
 				}
 				refreshScreen();
 			}
-			case "start" -> submit(RelayMessage.of("start", truncate(str(obj, "case"), 40), nextNumber));
+			case "start" -> {
+				Site here = mySite();
+				if (here != null) {
+					submit(RelayMessage.of("start", truncate(str(obj, "case"), 40), nextCaseNumber(),
+							here.dimension(), Math.round(here.x()), Math.round(here.y()), Math.round(here.z())));
+				}
+			}
 			case "end" -> submit(RelayMessage.of("end", I18n.get("court.aceattorney.session_end")));
+			case "leave" -> submit(RelayMessage.of("leave", ""));
 			case "verdict" -> {
 				boolean guilty = obj.has("guilty") && obj.get("guilty").getAsBoolean();
 				submit(RelayMessage.of("verdict",
@@ -170,8 +187,11 @@ public final class RelayCourt {
 			}
 			case "claim_role" -> {
 				CourtRole role = parseRole(str(obj, "role"));
-				if (role != null) {
-					submit(RelayMessage.of("role", role.displayName().getString(), role.id()));
+				Session target = viewSession();
+				if (role != null && target == null) {
+					fail(new Failure("court.aceattorney.no_session_hint_block"));
+				} else if (role != null) {
+					submit(RelayMessage.of("role", role.displayName().getString(), role.id(), target.number));
 				}
 			}
 			case "add_evidence" -> submit(RelayMessage.of("ev",
@@ -200,14 +220,12 @@ public final class RelayCourt {
 	/** Validates locally first so the player gets feedback instead of a silently dropped event. */
 	private static void submit(RelayMessage message) {
 		if (message.op().equals("start") && System.currentTimeMillis() - lastSyncRequest < SYNC_WAIT_MS) {
-			fail("chat.aceattorney.relay_syncing");
+			fail(new Failure("chat.aceattorney.relay_syncing"));
 			return;
 		}
-		String failure = validate(myName(), message);
+		Failure failure = validate(myName(), message);
 		if (failure != null) {
-			if (!failure.isEmpty()) {
-				fail(failure);
-			}
+			fail(failure);
 			return;
 		}
 		RelayChannel.send(message);
@@ -237,16 +255,13 @@ public final class RelayCourt {
 			default -> {
 			}
 		}
-		if (m.op().equals("start") && session != null) {
-			// an outsider missed our session and tried to open their own
-			if (!session.roles.containsKey(sender)) {
-				maybeSendSnapshot(sender);
-			}
-			return;
-		}
-		String failure = validate(sender, m);
+		Failure failure = validate(sender, m);
 		if (failure != null) {
-			if (session == null && NEEDS_SESSION.contains(m.op())) {
+			if (m.op().equals("start")) {
+				// the sender may simply not know about the session next to it: tell it
+				maybeSendSnapshot(sender);
+			} else if (sessionOf(sender) == null && NEEDS_SESSION.contains(m.op())) {
+				// the sender is in a session we have not heard of (we joined late)
 				requestSync();
 			}
 			return;
@@ -255,99 +270,120 @@ public final class RelayCourt {
 		refreshScreen();
 	}
 
-	/** Returns a lang key describing why the action is not allowed, MALFORMED, or null if allowed. */
-	private static String validate(String actor, RelayMessage m) {
+	/** Returns why the action is not allowed, {@link Failure#MALFORMED}, or null if it is allowed. */
+	private static Failure validate(String actor, RelayMessage m) {
+		Session own = sessionOf(actor);
 		return switch (m.op()) {
-			case "shout" -> shoutType(m) == null ? MALFORMED : null;
-			case "say" -> m.payload().isBlank() ? MALFORMED : null;
-			case "start" -> session != null ? "court.aceattorney.already_active" : null;
-			case "end" -> requireJudge(actor);
+			case "shout" -> shoutType(m) == null ? Failure.MALFORMED : null;
+			case "say" -> m.payload().isBlank() ? Failure.MALFORMED : null;
+			case "start" -> {
+				Site site = parseSite(m, 1);
+				if (site == null || m.intArg(0) < 1) {
+					yield Failure.MALFORMED;
+				}
+				for (Session s : SESSIONS.values()) {
+					// starting a new session leaves the old one, which closes it if the player is alone in it
+					if (s == own && own.roles.size() == 1) {
+						continue;
+					}
+					if (s.site.isNear(site) && !isAbandoned(s)) {
+						yield new Failure("court.aceattorney.range_conflict", s.number,
+								(int) Math.ceil(site.distanceTo(s.site)), (int) Site.RADIUS);
+					}
+				}
+				yield null;
+			}
+			case "end" -> requireJudge(own, actor);
 			case "verdict" -> {
-				String failure = requireJudge(actor);
+				Failure failure = requireJudge(own, actor);
 				if (failure != null) {
 					yield failure;
 				}
-				yield m.arg(0).equals("guilty") || m.arg(0).equals("not_guilty") ? null : MALFORMED;
+				yield m.arg(0).equals("guilty") || m.arg(0).equals("not_guilty") ? null : Failure.MALFORMED;
 			}
 			case "role" -> {
-				if (session == null) {
-					yield "court.aceattorney.no_session";
-				}
 				CourtRole role = parseRole(m.arg(0));
 				if (role == null) {
-					yield MALFORMED;
+					yield Failure.MALFORMED;
 				}
-				yield role == CourtRole.JUDGE && session.hasJudge() && !session.isJudge(actor)
-						? "court.aceattorney.judge_taken" : null;
+				Session target = SESSIONS.get(m.intArg(1));
+				if (target == null) {
+					yield new Failure("court.aceattorney.no_session");
+				}
+				yield role == CourtRole.JUDGE && target.hasJudge() && !target.isJudge(actor)
+						? new Failure("court.aceattorney.judge_taken") : null;
 			}
+			case "leave" -> own == null ? notParticipant() : null;
 			case "ev" -> {
-				String failure = requireParticipant(actor);
-				yield failure != null ? failure : (splitEvidence(m.payload())[0].isBlank() ? MALFORMED : null);
+				Failure failure = requireParticipant(own);
+				yield failure != null ? failure : (splitEvidence(m.payload())[0].isBlank() ? Failure.MALFORMED : null);
 			}
 			case "present" -> {
-				String failure = requireParticipant(actor);
+				Failure failure = requireParticipant(own);
 				yield failure != null ? failure
-						: inRange(m.intArg(0), session.evidence.size()) ? null : "court.aceattorney.no_such_evidence";
+						: inRange(m.intArg(0), own.evidence.size()) ? null : new Failure("court.aceattorney.no_such_evidence");
 			}
 			case "st" -> {
-				String failure = requireParticipant(actor);
+				Failure failure = requireParticipant(own);
 				if (failure != null) {
 					yield failure;
 				}
-				CourtRole role = session.roles.get(actor);
+				CourtRole role = own.roles.get(actor);
 				if (role != CourtRole.WITNESS && role != CourtRole.DEFENDANT) {
-					yield "court.aceattorney.testimony_witness_only";
+					yield new Failure("court.aceattorney.testimony_witness_only");
 				}
-				yield m.payload().isBlank() ? MALFORMED : null;
+				yield m.payload().isBlank() ? Failure.MALFORMED : null;
 			}
 			case "edit" -> {
-				String failure = requireParticipant(actor);
+				Failure failure = requireParticipant(own);
 				if (failure != null) {
 					yield failure;
 				}
 				int index = m.intArg(0);
-				if (!inRange(index, session.testimony.size())) {
-					yield "court.aceattorney.no_such_statement";
+				if (!inRange(index, own.testimony.size())) {
+					yield new Failure("court.aceattorney.no_such_statement");
 				}
-				boolean author = session.testimony.get(index - 1).speaker().equals(actor);
-				if (!author && !session.isJudge(actor)) {
-					yield "court.aceattorney.edit_not_allowed";
+				boolean author = own.testimony.get(index - 1).speaker().equals(actor);
+				if (!author && !own.isJudge(actor)) {
+					yield new Failure("court.aceattorney.edit_not_allowed");
 				}
-				yield m.payload().isBlank() ? MALFORMED : null;
+				yield m.payload().isBlank() ? Failure.MALFORMED : null;
 			}
 			case "play" -> {
-				if (session == null) {
-					yield "court.aceattorney.no_session";
+				Failure failure = requireParticipant(own);
+				if (failure != null) {
+					yield failure;
 				}
-				yield session.testimony.isEmpty() ? "court.aceattorney.testimony_empty" : null;
+				yield own.testimony.isEmpty() ? new Failure("court.aceattorney.testimony_empty") : null;
 			}
 			case "press" -> {
-				String failure = requireParticipant(actor);
+				Failure failure = requireParticipant(own);
 				if (failure != null) {
 					yield failure;
 				}
-				CourtRole role = session.roles.get(actor);
+				CourtRole role = own.roles.get(actor);
 				if (role != CourtRole.DEFENSE && role != CourtRole.DEFENDANT) {
-					yield "court.aceattorney.press_defense_only";
+					yield new Failure("court.aceattorney.press_defense_only");
 				}
-				yield inRange(m.intArg(0), session.testimony.size()) ? null : "court.aceattorney.no_such_statement";
+				yield inRange(m.intArg(0), own.testimony.size()) ? null : new Failure("court.aceattorney.no_such_statement");
 			}
 			case "object" -> {
-				String failure = requireParticipant(actor);
+				Failure failure = requireParticipant(own);
 				if (failure != null) {
 					yield failure;
 				}
-				if (!inRange(m.intArg(0), session.testimony.size())) {
-					yield "court.aceattorney.no_such_statement";
+				if (!inRange(m.intArg(0), own.testimony.size())) {
+					yield new Failure("court.aceattorney.no_such_statement");
 				}
-				yield m.args().size() < 2 || inRange(m.intArg(1), session.evidence.size())
-						? null : "court.aceattorney.no_such_evidence";
+				yield m.args().size() < 2 || inRange(m.intArg(1), own.evidence.size())
+						? null : new Failure("court.aceattorney.no_such_evidence");
 			}
-			default -> MALFORMED;
+			default -> Failure.MALFORMED;
 		};
 	}
 
 	private static void apply(String actor, UUID actorId, RelayMessage m) {
+		Session own = sessionOf(actor);
 		switch (m.op()) {
 			case "shout" -> {
 				long now = System.currentTimeMillis();
@@ -357,129 +393,152 @@ public final class RelayCourt {
 				}
 				LAST_SHOUT.put(actor, now);
 				ShoutType type = shoutType(m);
-				if (near(actorId, SHOUT_RADIUS)) {
+				// a participant's shout belongs to their trial; anyone else is heard by those nearby
+				if (own != null ? inAudience(own) : near(actorId, SHOUT_RADIUS)) {
 					ShoutOverlay.show(type, actor);
 				}
-				if (session != null && session.roles.containsKey(actor)) {
-					protocol(actor, "выкрикивает: " + shoutText(type));
+				if (own != null) {
+					protocol(own, actor, "выкрикивает: " + shoutText(type));
 				}
 			}
 			case "say" -> {
 				if (near(actorId, SAY_RADIUS)) {
 					DialogueOverlay.enqueue(new DialogueS2CPayload(actor, m.payload(), 0));
 				}
-				if (session != null && session.roles.containsKey(actor)) {
-					protocol(actor, "говорит: «" + m.payload() + "»");
+				if (own != null) {
+					protocol(own, actor, "говорит: «" + m.payload() + "»");
 				}
 			}
 			case "start" -> {
-				int number = Math.max(1, m.intArg(0));
-				session = new Session(actor, number, m.payload());
+				Site site = parseSite(m, 1);
+				closeAbandonedNear(site);
+				if (own != null) {
+					leaveSession(own, actor, "покидает заседание (открывает другое дело)");
+				}
+				int number = m.intArg(0);
+				if (SESSIONS.containsKey(number)) {
+					number = nextCaseNumber(); // two sessions picked the same number at once
+				}
+				Session session = new Session(actor, number, m.payload(), site);
 				session.roles.put(actor, CourtRole.JUDGE);
-				nextNumber = Math.max(nextNumber, number + 1);
+				SESSIONS.put(number, session);
 				if (session.caseName.isEmpty()) {
-					chat(Component.translatable("court.aceattorney.case_number", number));
+					chat(session, Component.translatable("court.aceattorney.case_number", number));
 				} else {
-					chat(Component.translatable("court.aceattorney.case", number,
+					chat(session, Component.translatable("court.aceattorney.case", number,
 							Component.literal(session.caseName).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)));
 				}
-				title(Component.translatable("court.aceattorney.session_start").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
+				title(session, Component.translatable("court.aceattorney.session_start").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
 						Component.translatable("court.aceattorney.session_start.sub", actor));
-				gavel(1.0f);
-				chat(Component.translatable("court.aceattorney.hint_roles_relay").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-				protocol(actor, "открывает заседание по делу №" + number
+				gavel(session, 1.0f);
+				chat(session, Component.translatable("court.aceattorney.hint_roles_relay").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+				protocol(session, actor, "открывает заседание по делу №" + number
 						+ (session.caseName.isEmpty() ? "" : " «" + session.caseName + "»"));
 			}
 			case "end" -> {
-				protocol(actor, "закрывает заседание без вердикта");
-				appendCase("dismissed");
-				chat(Component.translatable("court.aceattorney.session_end").withStyle(ChatFormatting.GOLD));
-				session = null;
+				protocol(own, actor, "закрывает заседание без вердикта");
+				chat(own, Component.translatable("court.aceattorney.session_end").withStyle(ChatFormatting.GOLD));
+				close(own, "dismissed");
 			}
 			case "verdict" -> {
 				boolean guilty = m.arg(0).equals("guilty");
-				title(guilty
+				title(own, guilty
 								? Component.translatable("court.aceattorney.verdict.guilty").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
 								: Component.translatable("court.aceattorney.verdict.not_guilty").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
 						Component.translatable("court.aceattorney.verdict.sub"));
-				gavel(guilty ? 0.8f : 1.2f);
-				protocol(actor, "выносит вердикт: " + (guilty ? "ВИНОВЕН" : "НЕВИНОВЕН"));
-				appendCase(guilty ? "guilty" : "not_guilty");
-				session = null;
+				gavel(own, guilty ? 0.8f : 1.2f);
+				protocol(own, actor, "выносит вердикт: " + (guilty ? "ВИНОВЕН" : "НЕВИНОВЕН"));
+				close(own, guilty ? "guilty" : "not_guilty");
 			}
 			case "role" -> {
 				CourtRole role = parseRole(m.arg(0));
-				if (session.roles.get(actor) == role) {
+				Session target = SESSIONS.get(m.intArg(1));
+				if (target.roles.get(actor) == role) {
 					return;
 				}
-				if (role == CourtRole.JUDGE) {
-					session.judge = actor;
+				if (own != null && own != target) {
+					leaveSession(own, actor, "покидает заседание (занимает место в деле №" + target.number + ")");
 				}
-				session.roles.put(actor, role);
-				chat(Component.translatable("court.aceattorney.role_assigned", actor, role.displayName()));
-				protocol(actor, "занимает место: " + role.displayName().getString());
+				if (role == CourtRole.JUDGE) {
+					target.judge = actor;
+				}
+				target.roles.put(actor, role);
+				chat(target, Component.translatable("court.aceattorney.role_assigned", actor, role.displayName()));
+				protocol(target, actor, "занимает место: " + role.displayName().getString());
+			}
+			case "leave" -> {
+				if (actor.equals(myName())) {
+					chatNow(Component.translatable("court.aceattorney.left_you", own.number));
+				}
+				leaveSession(own, actor, "покидает заседание");
 			}
 			case "ev" -> {
 				String[] parts = splitEvidence(m.payload());
-				session.evidence.add(new Evidence(parts[0], parts[1], actor));
-				chat(Component.translatable("court.aceattorney.evidence_added", actor,
+				own.evidence.add(new Evidence(parts[0], parts[1], actor));
+				chat(own, Component.translatable("court.aceattorney.evidence_added", actor,
 						Component.literal(parts[0]).withStyle(ChatFormatting.YELLOW)));
-				protocol(actor, "приобщает улику «" + parts[0] + "»: " + parts[1]);
+				protocol(own, actor, "приобщает улику «" + parts[0] + "»: " + parts[1]);
 			}
 			case "present" -> {
-				Evidence e = session.evidence.get(m.intArg(0) - 1);
-				ShoutOverlay.show(ShoutType.TAKE_THAT, actor);
-				chat(Component.translatable("court.aceattorney.evidence_presented", actor,
+				Evidence e = own.evidence.get(m.intArg(0) - 1);
+				if (inAudience(own)) {
+					ShoutOverlay.show(ShoutType.TAKE_THAT, actor);
+				}
+				chat(own, Component.translatable("court.aceattorney.evidence_presented", actor,
 						Component.literal(e.name()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)));
-				chat(Component.literal("  «" + e.desc() + "»").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-				protocol(actor, "предъявляет улику «" + e.name() + "»");
+				chat(own, Component.literal("  «" + e.desc() + "»").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+				protocol(own, actor, "предъявляет улику «" + e.name() + "»");
 			}
 			case "st" -> {
-				session.testimony.add(new Statement(actor, m.payload()));
-				int number = session.testimony.size();
+				own.testimony.add(new Statement(actor, m.payload()));
+				int number = own.testimony.size();
 				if (actor.equals(myName())) {
-					chat(Component.translatable("court.aceattorney.statement_added", number));
+					chatNow(Component.translatable("court.aceattorney.statement_added", number));
 				}
-				protocol(actor, "даёт показание №" + number + ": «" + m.payload() + "»");
+				protocol(own, actor, "даёт показание №" + number + ": «" + m.payload() + "»");
 			}
 			case "edit" -> {
 				int index = m.intArg(0);
-				Statement old = session.testimony.get(index - 1);
-				session.testimony.set(index - 1, new Statement(old.speaker(), m.payload()));
-				chat(Component.translatable("court.aceattorney.statement_edited", actor, index));
-				DialogueOverlay.enqueue(new DialogueS2CPayload(old.speaker(), m.payload(), index));
-				protocol(actor, "изменяет показание №" + index + ": «" + old.text() + "» → «" + m.payload() + "»");
+				Statement old = own.testimony.get(index - 1);
+				own.testimony.set(index - 1, new Statement(old.speaker(), m.payload()));
+				chat(own, Component.translatable("court.aceattorney.statement_edited", actor, index));
+				dialogue(own, new DialogueS2CPayload(old.speaker(), m.payload(), index));
+				protocol(own, actor, "изменяет показание №" + index + ": «" + old.text() + "» → «" + m.payload() + "»");
 			}
 			case "play" -> {
-				title(Component.translatable("court.aceattorney.testimony_title").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), null);
+				title(own, Component.translatable("court.aceattorney.testimony_title").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), null);
 				int i = 1;
-				for (Statement s : session.testimony) {
-					DialogueOverlay.enqueue(new DialogueS2CPayload(s.speaker(), s.text(), i++));
+				for (Statement s : own.testimony) {
+					dialogue(own, new DialogueS2CPayload(s.speaker(), s.text(), i++));
 				}
-				protocol(actor, "оглашает показания (" + session.testimony.size() + " шт.)");
+				protocol(own, actor, "оглашает показания (" + own.testimony.size() + " шт.)");
 			}
 			case "press" -> {
 				int index = m.intArg(0);
-				Statement s = session.testimony.get(index - 1);
-				ShoutOverlay.show(ShoutType.HOLD_IT, actor);
-				chat(Component.translatable("court.aceattorney.press", actor, index));
-				DialogueOverlay.enqueue(new DialogueS2CPayload(s.speaker(), s.text(), index));
-				protocol(actor, "давит на показание №" + index + " («" + s.text() + "»)");
+				Statement s = own.testimony.get(index - 1);
+				if (inAudience(own)) {
+					ShoutOverlay.show(ShoutType.HOLD_IT, actor);
+				}
+				chat(own, Component.translatable("court.aceattorney.press", actor, index));
+				dialogue(own, new DialogueS2CPayload(s.speaker(), s.text(), index));
+				protocol(own, actor, "давит на показание №" + index + " («" + s.text() + "»)");
 			}
 			case "object" -> {
 				int index = m.intArg(0);
-				Statement s = session.testimony.get(index - 1);
-				ShoutOverlay.show(ShoutType.OBJECTION, actor);
-				DialogueOverlay.enqueue(new DialogueS2CPayload(s.speaker(), s.text(), index));
+				Statement s = own.testimony.get(index - 1);
+				if (inAudience(own)) {
+					ShoutOverlay.show(ShoutType.OBJECTION, actor);
+				}
+				dialogue(own, new DialogueS2CPayload(s.speaker(), s.text(), index));
 				if (m.args().size() >= 2) {
-					Evidence e = session.evidence.get(m.intArg(1) - 1);
-					chat(Component.translatable("court.aceattorney.objection_evidence", actor,
+					Evidence e = own.evidence.get(m.intArg(1) - 1);
+					chat(own, Component.translatable("court.aceattorney.objection_evidence", actor,
 							Component.literal(e.name()).withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD), index));
-					chat(Component.literal("  «" + e.desc() + "»").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
-					protocol(actor, "заявляет протест против показания №" + index + " с уликой «" + e.name() + "»");
+					chat(own, Component.literal("  «" + e.desc() + "»").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+					protocol(own, actor, "заявляет протест против показания №" + index + " с уликой «" + e.name() + "»");
 				} else {
-					chat(Component.translatable("court.aceattorney.objection_plain", actor, index));
-					protocol(actor, "заявляет протест против показания №" + index);
+					chat(own, Component.translatable("court.aceattorney.objection_plain", actor, index));
+					protocol(own, actor, "заявляет протест против показания №" + index);
 				}
 			}
 			default -> {
@@ -487,7 +546,47 @@ public final class RelayCourt {
 		}
 	}
 
-	// ---------- late joiners: sync request and snapshot ----------
+	// ---------- leaving, closing, abandoned sessions ----------
+
+	private static void leaveSession(Session session, String actor, String protocolText) {
+		protocol(session, actor, protocolText);
+		session.roles.remove(actor);
+		chat(session, Component.translatable("court.aceattorney.left", actor));
+		if (session.roles.isEmpty()) {
+			chat(session, Component.translatable("court.aceattorney.session_empty", session.number).withStyle(ChatFormatting.GRAY));
+			close(session, "dismissed");
+		}
+	}
+
+	/** Records the case in the local journal and forgets the session. */
+	private static void close(Session session, String verdict) {
+		appendCase(session, verdict);
+		SESSIONS.remove(session.number);
+	}
+
+	/** Sessions nobody is online for within reach of a new one are closed so they cannot block it. */
+	private static void closeAbandonedNear(Site site) {
+		for (Session session : new ArrayList<>(SESSIONS.values())) {
+			if (session.site.isNear(site) && isAbandoned(session)) {
+				session.protocol.add(new LogEntry(LocalTime.now().format(TIME_FORMAT),
+						"—", "заседание закрыто автоматически: никого из участников нет в сети"));
+				chat(session, Component.translatable("court.aceattorney.abandoned_closed", session.number).withStyle(ChatFormatting.GRAY));
+				close(session, "dismissed");
+			}
+		}
+	}
+
+	private static boolean isAbandoned(Session session) {
+		Set<String> online = onlineNames();
+		for (String name : session.roles.keySet()) {
+			if (online.contains(name)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// ---------- late joiners: sync request and snapshots ----------
 
 	private static void requestSync() {
 		long now = System.currentTimeMillis();
@@ -499,31 +598,38 @@ public final class RelayCourt {
 	}
 
 	/**
-	 * One client answers: the judge if online, otherwise the first online
-	 * participant (never the requester itself). Everyone sees the same tab
-	 * list, so everyone agrees on who that is.
+	 * For each session one client answers: its judge if online, otherwise the
+	 * first online participant (never the requester itself). Everyone sees the
+	 * same tab list, so everyone agrees on who that is.
 	 */
 	private static void maybeSendSnapshot(String requester) {
-		if (session == null || requester.equals(myName())) {
-			return;
-		}
+		String me = myName();
 		Set<String> online = onlineNames();
-		List<String> candidates = new ArrayList<>();
-		candidates.add(session.judge);
-		candidates.addAll(session.roles.keySet());
-		String responder = null;
-		for (String name : candidates) {
-			if (!name.equals(requester) && online.contains(name)) {
-				responder = name;
-				break;
-			}
-		}
 		long now = System.currentTimeMillis();
-		if (!myName().equals(responder) || now - lastSnapshot < SNAPSHOT_INTERVAL_MS) {
-			return;
+		for (Session session : new ArrayList<>(SESSIONS.values())) {
+			List<String> candidates = new ArrayList<>();
+			candidates.add(session.judge);
+			candidates.addAll(session.roles.keySet());
+			String responder = null;
+			for (String name : candidates) {
+				if (!name.equals(requester) && online.contains(name)) {
+					responder = name;
+					break;
+				}
+			}
+			Long last = LAST_SNAPSHOT.get(session.number);
+			if (!me.equals(responder) || (last != null && now - last < SNAPSHOT_INTERVAL_MS)) {
+				continue;
+			}
+			LAST_SNAPSHOT.put(session.number, now);
+			sendSnapshot(session);
 		}
-		lastSnapshot = now;
-		RelayChannel.send(RelayMessage.of("snap", session.caseName, session.number, session.judge));
+	}
+
+	private static void sendSnapshot(Session session) {
+		Site site = session.site;
+		RelayChannel.send(RelayMessage.of("snap", session.caseName, session.number, session.judge,
+				site.dimension(), Math.round(site.x()), Math.round(site.y()), Math.round(site.z())));
 		session.roles.forEach((name, role) -> RelayChannel.send(RelayMessage.of("snap-role", name, role.id())));
 		for (Evidence e : session.evidence) {
 			RelayChannel.send(RelayMessage.of("snap-ev", e.name() + " | " + e.desc(), e.submitter()));
@@ -537,20 +643,21 @@ public final class RelayCourt {
 	private static void onSnapshotStart(String sender, RelayMessage m) {
 		int number = m.intArg(0);
 		String judge = m.arg(1);
-		if (number < 1 || judge.isEmpty()) {
+		Site site = parseSite(m, 2);
+		if (number < 1 || judge.isEmpty() || site == null) {
 			return;
 		}
-		if (session != null && session.number == number && session.judge.equals(judge)) {
-			pending = null; // already in sync
-			pendingFrom = null;
+		Session known = SESSIONS.get(number);
+		if (known != null && known.judge.equals(judge)) {
+			PENDING.remove(sender); // already in sync
 			return;
 		}
-		pending = new Session(judge, number, m.payload());
-		pendingFrom = sender;
+		PENDING.put(sender, new Session(judge, number, m.payload(), site));
 	}
 
 	private static void onSnapshotLine(String sender, RelayMessage m) {
-		if (pending == null || !sender.equals(pendingFrom)) {
+		Session pending = PENDING.get(sender);
+		if (pending == null) {
 			return;
 		}
 		switch (m.op()) {
@@ -571,16 +678,16 @@ public final class RelayCourt {
 	}
 
 	private static void onSnapshotEnd(String sender) {
-		if (pending == null || !sender.equals(pendingFrom)) {
+		Session session = PENDING.remove(sender);
+		if (session == null) {
 			return;
 		}
-		session = pending;
-		pending = null;
-		pendingFrom = null;
-		nextNumber = Math.max(nextNumber, session.number + 1);
-		protocol(myName(), "подключается к заседанию (более ранние записи протокола недоступны)");
-		chat(Component.translatable("chat.aceattorney.relay_synced", session.number, session.judge)
-				.withStyle(ChatFormatting.GRAY));
+		SESSIONS.put(session.number, session);
+		protocol(session, myName(), "подключается к заседанию (более ранние записи протокола недоступны)");
+		if (inAudience(session)) {
+			chatNow(Component.translatable("chat.aceattorney.relay_synced", session.number, session.judge)
+					.withStyle(ChatFormatting.GRAY));
+		}
 		refreshScreen();
 	}
 
@@ -592,6 +699,7 @@ public final class RelayCourt {
 
 	private static JsonObject buildState() {
 		JsonObject root = new JsonObject();
+		Session session = viewSession();
 		root.addProperty("active", session != null);
 		JsonArray summary = new JsonArray();
 		for (var el : caseLog) {
@@ -651,13 +759,14 @@ public final class RelayCourt {
 	private static void export(int number) {
 		JsonObject export;
 		if (number <= 0) {
+			Session session = sessionOf(myName());
 			if (session == null) {
-				fail("court.aceattorney.no_session");
+				fail(new Failure(SESSIONS.isEmpty() ? "court.aceattorney.no_session" : "court.aceattorney.not_participant"));
 				return;
 			}
 			CourtRole role = session.roles.get(myName());
 			if (role != CourtRole.CLERK && role != CourtRole.JUDGE) {
-				fail("court.aceattorney.export_clerk_only");
+				fail(new Failure("court.aceattorney.export_clerk_only"));
 				return;
 			}
 			export = new JsonObject();
@@ -675,7 +784,7 @@ public final class RelayCourt {
 				}
 			}
 			if (export == null) {
-				fail("court.aceattorney.no_such_case");
+				fail(new Failure("court.aceattorney.no_such_case"));
 				return;
 			}
 		}
@@ -690,22 +799,18 @@ public final class RelayCourt {
 		caseLogFile = mc.gameDirectory.toPath().resolve("config").resolve("aceattorney")
 				.resolve("relay_cases").resolve(key + ".json");
 		caseLog = new JsonArray();
-		nextNumber = 1;
 		if (!Files.exists(caseLogFile)) {
 			return;
 		}
 		try {
 			caseLog = JsonParser.parseString(Files.readString(caseLogFile, StandardCharsets.UTF_8)).getAsJsonArray();
-			for (var el : caseLog) {
-				nextNumber = Math.max(nextNumber, el.getAsJsonObject().get("number").getAsInt() + 1);
-			}
 		} catch (Exception e) {
 			AceAttorney.LOGGER.warn("Could not read relay case log {}", caseLogFile, e);
 			caseLog = new JsonArray();
 		}
 	}
 
-	private static void appendCase(String verdict) {
+	private static void appendCase(Session session, String verdict) {
 		JsonObject record = new JsonObject();
 		record.addProperty("number", session.number);
 		record.addProperty("name", session.caseName);
@@ -725,20 +830,89 @@ public final class RelayCourt {
 		}
 	}
 
-	// ---------- helpers ----------
-
-	private static String requireParticipant(String actor) {
-		if (session == null) {
-			return "court.aceattorney.no_session";
+	/** Case numbers never repeat: after the highest one in the journal or among running sessions. */
+	private static int nextCaseNumber() {
+		int highest = 0;
+		for (var el : caseLog) {
+			highest = Math.max(highest, el.getAsJsonObject().get("number").getAsInt());
 		}
-		return session.roles.containsKey(actor) ? null : "court.aceattorney.not_participant";
+		for (Session session : SESSIONS.values()) {
+			highest = Math.max(highest, session.number);
+		}
+		return highest + 1;
 	}
 
-	private static String requireJudge(String actor) {
-		if (session == null) {
-			return "court.aceattorney.no_session";
+	// ---------- sessions and places ----------
+
+	/** The session in which the player holds a role (a player is in at most one). */
+	private static Session sessionOf(String name) {
+		for (Session session : SESSIONS.values()) {
+			if (session.roles.containsKey(name)) {
+				return session;
+			}
 		}
-		return session.isJudge(actor) ? null : "court.aceattorney.judge_only";
+		return null;
+	}
+
+	/** The session the local player is part of, or else the one happening around them. */
+	private static Session viewSession() {
+		Session own = sessionOf(myName());
+		if (own != null) {
+			return own;
+		}
+		Site here = mySite();
+		return here == null ? null : here.nearest(SESSIONS.values(), s -> s.site);
+	}
+
+	/** Whether the local player should see what the session says: its participants and those nearby. */
+	private static boolean inAudience(Session session) {
+		if (session.roles.containsKey(myName())) {
+			return true;
+		}
+		Site here = mySite();
+		return here != null && here.isNear(session.site);
+	}
+
+	private static Site mySite() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || mc.level == null) {
+			return null;
+		}
+		return new Site(mc.level.dimension().identifier().toString(), mc.player.getX(), mc.player.getY(), mc.player.getZ());
+	}
+
+	/** Reads a site from the arguments: dimension, x, y, z starting at {@code from}. */
+	private static Site parseSite(RelayMessage m, int from) {
+		String dimension = m.arg(from);
+		if (dimension.isEmpty()) {
+			return null;
+		}
+		try {
+			return new Site(dimension, Double.parseDouble(m.arg(from + 1)),
+					Double.parseDouble(m.arg(from + 2)), Double.parseDouble(m.arg(from + 3)));
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
+	// ---------- helpers ----------
+
+	private static Failure requireParticipant(Session own) {
+		if (own != null) {
+			return null;
+		}
+		return notParticipant();
+	}
+
+	private static Failure notParticipant() {
+		return new Failure(SESSIONS.isEmpty() ? "court.aceattorney.no_session" : "court.aceattorney.not_participant");
+	}
+
+	private static Failure requireJudge(Session own, String actor) {
+		if (own == null) {
+			return notParticipant();
+		}
+		return own.isJudge(actor) ? null : new Failure("court.aceattorney.judge_only");
 	}
 
 	private static boolean inRange(int index, int size) {
@@ -755,7 +929,8 @@ public final class RelayCourt {
 	}
 
 	private static String evidenceName(int index) {
-		return session != null && inRange(index, session.evidence.size()) ? session.evidence.get(index - 1).name() : "";
+		Session own = sessionOf(myName());
+		return own != null && inRange(index, own.evidence.size()) ? own.evidence.get(index - 1).name() : "";
 	}
 
 	private static CourtRole parseRole(String id) {
@@ -783,10 +958,8 @@ public final class RelayCourt {
 		};
 	}
 
-	private static void protocol(String actor, String text) {
-		if (session != null) {
-			session.protocol.add(new LogEntry(LocalTime.now().format(TIME_FORMAT), actor, text));
-		}
+	private static void protocol(Session session, String actor, String text) {
+		session.protocol.add(new LogEntry(LocalTime.now().format(TIME_FORMAT), actor, text));
 	}
 
 	private static boolean near(UUID id, double radius) {
@@ -817,26 +990,48 @@ public final class RelayCourt {
 		return mc.player != null ? mc.player.getGameProfile().name() : "";
 	}
 
-	private static void chat(Component message) {
+	// ---------- output: only the session's audience sees it ----------
+
+	private static void chat(Session session, Component message) {
+		if (inAudience(session)) {
+			chatNow(message);
+		}
+	}
+
+	private static void chatNow(Component message) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player != null) {
 			mc.player.displayClientMessage(message, false);
 		}
 	}
 
-	private static void fail(String key) {
-		chat(Component.translatable(key).withStyle(ChatFormatting.RED));
+	private static void fail(Failure failure) {
+		if (failure.key().isEmpty()) {
+			return;
+		}
+		chatNow(Component.translatable(failure.key(), failure.args()).withStyle(ChatFormatting.RED));
 	}
 
-	private static void title(Component title, Component subtitle) {
+	private static void title(Session session, Component title, Component subtitle) {
+		if (!inAudience(session)) {
+			return;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		mc.gui.setTimes(5, 50, 10);
 		mc.gui.setSubtitle(subtitle != null ? subtitle : Component.empty());
 		mc.gui.setTitle(title);
 	}
 
-	private static void gavel(float pitch) {
-		Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(ModSounds.GAVEL, pitch, 1.0f));
+	private static void gavel(Session session, float pitch) {
+		if (inAudience(session)) {
+			Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(ModSounds.GAVEL, pitch, 1.0f));
+		}
+	}
+
+	private static void dialogue(Session session, DialogueS2CPayload payload) {
+		if (inAudience(session)) {
+			DialogueOverlay.enqueue(payload);
+		}
 	}
 
 	private static String str(JsonObject obj, String key) {

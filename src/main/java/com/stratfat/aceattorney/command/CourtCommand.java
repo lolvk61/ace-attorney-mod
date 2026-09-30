@@ -23,6 +23,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -41,6 +42,8 @@ public class CourtCommand {
 							.executes(ctx -> asPlayerRun(ctx, p -> CourtService.start(p,
 									StringArgumentType.getString(ctx, "name"))))));
 			court.then(Commands.literal("end").executes(asPlayer(CourtService::end)));
+			court.then(Commands.literal("leave").executes(asPlayer(CourtService::leave)));
+			court.then(Commands.literal("list").executes(CourtCommand::listSessions));
 			court.then(Commands.literal("roles").executes(CourtCommand::listRoles));
 			court.then(Commands.literal("log").executes(CourtCommand::listLog));
 			court.then(Commands.literal("protocol").executes(CourtCommand::listProtocol));
@@ -133,6 +136,38 @@ public class CourtCommand {
 		return player != null && action.run(player) ? 1 : 0;
 	}
 
+	/** The session the command's player is part of or watching; null for the console or if there is none. */
+	private static CourtSession sessionOf(CommandContext<CommandSourceStack> ctx) {
+		ServerPlayer player = ctx.getSource().getPlayer();
+		return player == null ? null : CourtManager.viewedBy(player);
+	}
+
+	private static int listSessions(CommandContext<CommandSourceStack> ctx) {
+		var sessions = CourtManager.sessions();
+		if (sessions.isEmpty()) {
+			ctx.getSource().sendSuccess(() -> Component.translatable("court.aceattorney.list_empty").withStyle(ChatFormatting.GRAY), false);
+			return 1;
+		}
+		ServerPlayer viewer = ctx.getSource().getPlayer();
+		ctx.getSource().sendSuccess(() -> Component.translatable("court.aceattorney.list_header").withStyle(ChatFormatting.GOLD), false);
+		for (CourtSession session : sessions) {
+			ServerPlayer judge = ctx.getSource().getServer().getPlayerList().getPlayer(session.judge());
+			MutableComponent line = Component.literal(" №" + session.caseNumber()
+					+ (session.caseName().isBlank() ? "" : " «" + session.caseName() + "»")
+					+ " • " + (judge != null ? judge.getGameProfile().name() : "?")
+					+ " • " + session.roles().size()).withStyle(ChatFormatting.WHITE);
+			if (viewer != null) {
+				double blocks = CourtManager.siteOf(viewer).distanceTo(session.site());
+				line.append(Component.literal(" • ").append(Double.isInfinite(blocks)
+						? Component.translatable("court.aceattorney.list_other_dimension")
+						: Component.translatable("court.aceattorney.list_distance", Math.round(blocks)))
+						.withStyle(ChatFormatting.GRAY));
+			}
+			ctx.getSource().sendSuccess(() -> line, false);
+		}
+		return sessions.size();
+	}
+
 	private static int aaSay(CommandContext<CommandSourceStack> ctx) {
 		ServerPlayer player = ctx.getSource().getPlayer();
 		if (player == null) {
@@ -142,7 +177,7 @@ public class CourtCommand {
 	}
 
 	private static int listProtocol(CommandContext<CommandSourceStack> ctx) {
-		CourtSession session = CourtManager.session();
+		CourtSession session = sessionOf(ctx);
 		if (session == null) {
 			ctx.getSource().sendFailure(Component.translatable("court.aceattorney.no_session"));
 			return 0;
@@ -189,7 +224,7 @@ public class CourtCommand {
 	}
 
 	private static int listRoles(CommandContext<CommandSourceStack> ctx) {
-		CourtSession session = CourtManager.session();
+		CourtSession session = sessionOf(ctx);
 		if (session == null) {
 			ctx.getSource().sendFailure(Component.translatable("court.aceattorney.no_session"));
 			return 0;
@@ -204,7 +239,7 @@ public class CourtCommand {
 	}
 
 	private static int listEvidence(CommandContext<CommandSourceStack> ctx) {
-		CourtSession session = CourtManager.session();
+		CourtSession session = sessionOf(ctx);
 		if (session == null) {
 			ctx.getSource().sendFailure(Component.translatable("court.aceattorney.no_session"));
 			return 0;
@@ -228,7 +263,7 @@ public class CourtCommand {
 	}
 
 	private static int listTestimony(CommandContext<CommandSourceStack> ctx) {
-		CourtSession session = CourtManager.session();
+		CourtSession session = sessionOf(ctx);
 		if (session == null) {
 			ctx.getSource().sendFailure(Component.translatable("court.aceattorney.no_session"));
 			return 0;

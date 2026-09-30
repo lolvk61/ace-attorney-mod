@@ -20,12 +20,19 @@ public class CourtSession {
 	private final List<Evidence> evidence = new ArrayList<>();
 	private final List<Statement> testimony = new ArrayList<>();
 	private final List<LogEntry> protocol = new ArrayList<>();
+	private final Site site;
 	private String caseName = "";
 	private int caseNumber;
 
-	public CourtSession(UUID judge) {
+	public CourtSession(UUID judge, Site site) {
 		this.judge = judge;
+		this.site = site;
 		roles.put(judge, CourtRole.JUDGE);
+	}
+
+	/** Where the session was opened; it is the centre of its audience and of its exclusion zone. */
+	public Site site() {
+		return site;
 	}
 
 	public UUID judge() {

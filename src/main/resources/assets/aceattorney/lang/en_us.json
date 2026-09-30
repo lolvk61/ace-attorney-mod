@@ -113,5 +113,16 @@
   "court.aceattorney.hint_roles_relay": "Pick your role: Court Record (G key) → Role",
   "gui.aceattorney.role": "Role",
   "chat.aceattorney.relay_syncing": "Syncing with the current session — try again in a couple of seconds.",
-  "chat.aceattorney.no_backend": "This server does not support court sessions: it needs the AceAttorneyRelay plugin (Paper) or the mod on the server."
+  "chat.aceattorney.no_backend": "This server does not support court sessions: it needs the AceAttorneyRelay plugin (Paper) or the mod on the server.",
+  "court.aceattorney.list_header": "Running sessions (case • judge • participants):",
+  "court.aceattorney.target_elsewhere": "That player is taking part in another session.",
+  "court.aceattorney.list_distance": "%s blocks away",
+  "court.aceattorney.left_you": "You left session No. %s.",
+  "court.aceattorney.session_empty": "Everyone has left — session No. %s is closed.",
+  "court.aceattorney.range_conflict": "Another session (No. %s) is already running %s blocks from here. Sessions must be at least %s blocks apart.",
+  "court.aceattorney.left": "%s leaves the session.",
+  "court.aceattorney.list_empty": "No session is running right now.",
+  "court.aceattorney.list_other_dimension": "in another dimension",
+  "court.aceattorney.abandoned_closed": "Abandoned session No. %s (none of its participants is online) was closed.",
+  "gui.aceattorney.leave": "Leave session"
 }

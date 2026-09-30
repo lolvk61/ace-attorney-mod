@@ -35,6 +35,9 @@ Fabric • Minecraft 1.21.11 • Java 21 • [Download](../../releases/latest)
 - **Court clerk & protocol** — every action and line of speech is recorded with timestamps.
   The clerk can view and export the live protocol; anyone can export protocols of concluded
   cases from the persistent case log.
+- **Several trials at once** — sessions can run side by side as long as they are at least 50 blocks
+  apart. What a session says (chat lines, titles, dialogues, shouts) reaches only its participants and
+  the players within 50 blocks of it; everyone else is left alone.
 - **Dialogue boxes** — `/aa say <text>` shows a typewriter-style AA dialogue box to players nearby.
 - Full command fallback under `/court` for everything the GUI does.
 
@@ -115,13 +118,30 @@ Shift+ПКМ — обычное взаимодействие (можно стр�
   в **Журнале** и экспортировать его протокол
 - Файлы: `<папка игры>/aceattorney_protocols/delo_N.txt`, в чате — кликабельная ссылка
 
+### Несколько заседаний одновременно
+На одном сервере могут идти несколько заседаний, если между ними **не меньше 50 блоков**:
+
+- Заседание «привязано» к месту, где оно открыто (скамья судьи или позиция игрока, открывшего дело).
+  Если в радиусе 50 блоков уже идёт другое заседание, новое не откроется — игрок увидит, какое дело
+  рядом и в скольких блоках оно находится.
+- Блоки зала (столы, трибуна) работают на заседание, идущее вокруг них; роль берётся там, где ты стоишь.
+- Сообщения, титры, диалоги, выкрики и состояние GUI заседания получают только его участники (где бы
+  они ни были) и игроки в радиусе 50 блоков — они смотрят дело как зрители. Чужие заседания их не
+  касаются.
+- Игрок участвует только в одном заседании: новая роль или новое дело в другом месте переносит его
+  туда. Выйти можно командой `/court leave` (или кнопкой в окне «Роль» в режиме плагина). Когда уходит
+  последний участник, заседание закрывается.
+- Заседание, в котором никого из участников нет в сети, не блокирует место: оно закрывается само, как
+  только рядом кто-то открывает новое дело.
+- Номера дел сквозные и не повторяются; `/court list` показывает идущие заседания и расстояние до них.
+
 ### Журнал дел
 Каждое заседание получает сквозной номер. Вердикты записываются автоматически и переживают
 перезапуск сервера (файл `aceattorney_case_log.json` в папке мира). Просмотр: кнопка
 **Журнал** в GUI (работает и вне заседания) или `/court log`.
 
 ### Команды (дублируют GUI)
-`/court start [название]`, `end`, `roles`, `role <игрок> <роль>`, `evidence add|list|remove`,
+`/court start [название]`, `end`, `leave`, `list`, `roles`, `role <игрок> <роль>`, `evidence add|list|remove`,
 `present <№>`, `testimony add|edit|list|play|clear`, `press <№>`, `object <№> [улика]`,
 `verdict guilty|notguilty`, `log`, `protocol`, а также `/aa say <текст>`.
 

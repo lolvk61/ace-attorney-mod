@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.stratfat.aceattorney.ShoutType;
+import com.stratfat.aceattorney.court.CourtManager;
+import com.stratfat.aceattorney.court.CourtSession;
 
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -49,9 +51,22 @@ public class ModNetworking {
 		com.stratfat.aceattorney.court.CourtService.logShout(player, shout);
 	}
 
+	/**
+	 * A shout by a trial participant is heard by that trial's audience only,
+	 * so neighbouring sessions do not overhear each other. Anyone else shouts
+	 * to the players within {@link #SHOUT_RADIUS} blocks.
+	 */
 	public static void broadcastShout(ServerPlayer source, ShoutType shout) {
 		ShoutS2CPayload payload = new ShoutS2CPayload(shout, source.getGameProfile().name());
-		for (ServerPlayer other : source.level().getServer().getPlayerList().getPlayers()) {
+		MinecraftServer server = source.level().getServer();
+		CourtSession session = CourtManager.ofParticipant(source.getUUID());
+		if (session != null) {
+			for (ServerPlayer other : CourtManager.audience(session, server)) {
+				ServerPlayNetworking.send(other, payload);
+			}
+			return;
+		}
+		for (ServerPlayer other : server.getPlayerList().getPlayers()) {
 			if (other.level() == source.level() && other.distanceTo(source) <= SHOUT_RADIUS) {
 				ServerPlayNetworking.send(other, payload);
 			}
@@ -64,13 +79,6 @@ public class ModNetworking {
 			if (other.level() == source.level() && other.distanceTo(source) <= radius) {
 				ServerPlayNetworking.send(other, payload);
 			}
-		}
-	}
-
-	/** Dialogue box for everyone on the server (court proceedings). */
-	public static void broadcastDialogueGlobal(MinecraftServer server, DialogueS2CPayload payload) {
-		for (ServerPlayer other : server.getPlayerList().getPlayers()) {
-			ServerPlayNetworking.send(other, payload);
 		}
 	}
 }

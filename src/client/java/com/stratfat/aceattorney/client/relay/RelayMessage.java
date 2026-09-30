@@ -15,8 +15,8 @@ import com.google.gson.JsonParser;
  */
 public record RelayMessage(String op, List<String> args, String payload) {
 	private static final Pattern OP_PATTERN = Pattern.compile("[a-z?-]{1,16}");
-	private static final int MAX_ARGS = 4;
-	private static final int MAX_ARG_LENGTH = 64;
+	private static final int MAX_ARGS = 8;
+	private static final int MAX_ARG_LENGTH = 96;
 	private static final int MAX_PAYLOAD_LENGTH = 600;
 
 	public static RelayMessage of(String op, String payload, Object... args) {

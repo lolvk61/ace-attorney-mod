@@ -192,6 +192,13 @@ public class CourtScreen extends Screen {
 					rebuild();
 				}).bounds(left + PANEL_W / 2 - 152 + col * 154, top + 50 + row * 26, 150, 20).build());
 			}
+			if (!state.get("yourRole").getAsString().isEmpty()) {
+				addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.leave"), b -> {
+					sendAction("leave");
+					roleMode = false;
+					rebuild();
+				}).bounds(left + PANEL_W / 2 - 152, top + 50 + (roles.length / 2) * 26 + 6, 304, 20).build());
+			}
 			addRenderableWidget(Button.builder(Component.translatable("gui.aceattorney.back"), b -> {
 				roleMode = false;
 				rebuild();

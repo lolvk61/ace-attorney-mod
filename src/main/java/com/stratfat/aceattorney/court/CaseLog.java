@@ -60,8 +60,13 @@ public final class CaseLog {
 		return RECORDS;
 	}
 
-	public static int nextNumber() {
-		return RECORDS.isEmpty() ? 1 : RECORDS.get(RECORDS.size() - 1).number() + 1;
+	/** Sessions can finish in a different order than they started, so take the maximum, not the last. */
+	public static int highestNumber() {
+		int highest = 0;
+		for (CaseRecord record : RECORDS) {
+			highest = Math.max(highest, record.number());
+		}
+		return highest;
 	}
 
 	public static void append(int number, String name, String judge, String verdict, List<CourtSession.LogEntry> protocol) {

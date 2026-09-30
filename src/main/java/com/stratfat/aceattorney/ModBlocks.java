@@ -1,7 +1,9 @@
 package com.stratfat.aceattorney;
 
+import com.stratfat.aceattorney.court.CourtManager;
 import com.stratfat.aceattorney.court.CourtRole;
 import com.stratfat.aceattorney.court.CourtService;
+import com.stratfat.aceattorney.court.Site;
 
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
@@ -9,6 +11,7 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -79,18 +82,20 @@ public class ModBlocks {
 		if (!(player instanceof ServerPlayer serverPlayer)) {
 			return InteractionResult.PASS;
 		}
+		// the bench decides which session it belongs to: the one running around it
+		Site bench = CourtManager.siteOf((ServerLevel) level, hit.getBlockPos());
 		if (state.is(JUDGE_BENCH)) {
-			CourtService.judgeBenchUsed(serverPlayer);
+			CourtService.judgeBenchUsed(serverPlayer, bench);
 		} else if (state.is(WITNESS_STAND)) {
-			CourtService.claimRole(serverPlayer, CourtRole.WITNESS);
+			CourtService.claimRole(serverPlayer, CourtRole.WITNESS, bench);
 		} else if (state.is(DEFENSE_BENCH)) {
-			CourtService.claimRole(serverPlayer, CourtRole.DEFENSE);
+			CourtService.claimRole(serverPlayer, CourtRole.DEFENSE, bench);
 		} else if (state.is(DEFENDANT_BENCH)) {
-			CourtService.claimRole(serverPlayer, CourtRole.DEFENDANT);
+			CourtService.claimRole(serverPlayer, CourtRole.DEFENDANT, bench);
 		} else if (state.is(CLERK_BENCH)) {
-			CourtService.claimRole(serverPlayer, CourtRole.CLERK);
+			CourtService.claimRole(serverPlayer, CourtRole.CLERK, bench);
 		} else {
-			CourtService.claimRole(serverPlayer, CourtRole.PROSECUTION);
+			CourtService.claimRole(serverPlayer, CourtRole.PROSECUTION, bench);
 		}
 		return InteractionResult.SUCCESS;
 	}
